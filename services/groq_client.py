@@ -269,7 +269,6 @@ def chat(messages: list[dict], context: str | None = None, memory: str | None = 
         messages=full,
         temperature=0.7,
         max_tokens=600,
-        reasoning_effort="none",
     )
     return _strip_thinking(resp.choices[0].message.content or "")
 
