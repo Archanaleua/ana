@@ -51,13 +51,13 @@ def _strip_thinking(text: str) -> str:
     
     # Step 2 — Remove reasoning lines by starter words
     reasoning_starters = (
-        "Okay,", "Let me", "First,", "Looking at", "I need to",
-        "So the correct", "According to", "Since the reply", "The user is asking",
-        "This means", "Wait,", "Actually,", "The NAME", "Now,", "So,",
-        "Here,", "Based on", "In this", "To answer", "When the",
-        "The user", "They", "I should", "I'll", "I will", "I think",
-        "The message", "The question", "The response", "The reply",
-        "Alright,", "Sure,", "Right,", "Hmm,", "Well,", "OK,",
+    "Okay,", "First,", "Looking at", "I need to",
+    "So the correct", "According to", "Since the reply", "The user is asking",
+    "This means", "Wait,", "Actually,", "The NAME", "Now,", "So,",
+    "In this", "To answer", "When the",
+    "The user", "They", "I should", "I'll", "I will", "I think",
+    "The message", "The question", "The response", "The reply",
+    "Alright,", "Right,", "Hmm,", "Well,", "OK,",
     )
     lines = text.strip().split('\n')
     last_reasoning_index = -1
