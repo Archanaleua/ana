@@ -198,7 +198,7 @@ def _load_memory(sb, user_id: str) -> str | None:
             return f"Facts about this user:\n{facts}"
     except Exception as e:
         pass
-    return None
+    return None  # ← returns None when memory cleared = ANA doesn't know name! ✅
 
 
 def _load_context(sb, user_id: str, user_msg: str, document_id: str | None) -> str | None:
