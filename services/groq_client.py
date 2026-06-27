@@ -7,12 +7,18 @@ from groq import Groq
 
 
 def _strip_thinking(text: str) -> str:
+    # Step 1 — Remove <think>...</think> blocks
     text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
+    
+    # Step 2 — Remove reasoning lines by starter words
     reasoning_starters = (
         "Okay,", "Let me", "First,", "Looking at", "I need to",
         "So the correct", "According to", "Since the reply", "The user is asking",
         "This means", "Wait,", "Actually,", "The NAME", "Now,", "So,",
-        "Here,", "Based on", "In this", "To answer", "When the"
+        "Here,", "Based on", "In this", "To answer", "When the",
+        "The user", "They", "I should", "I'll", "I will", "I think",
+        "The message", "The question", "The response", "The reply",
+        "Alright,", "Sure,", "Right,", "Hmm,", "Well,", "OK,",
     )
     lines = text.strip().split('\n')
     last_reasoning_index = -1
@@ -25,10 +31,17 @@ def _strip_thinking(text: str) -> str:
             remaining.pop(0)
         if remaining:
             return '\n'.join(remaining).strip()
+    
+    # Step 3 — Aggressive fallback: take last paragraph after \n\n
+    parts = text.strip().split('\n\n')
+    if len(parts) > 1:
+        return parts[-1].strip()
+    
     return text.strip()
 
 
 SYSTEM_PROMPT = (
+    "CRITICAL: Do NOT show your thinking process. Do NOT use <think> tags. Reply DIRECTLY with the answer only. "
     # ══════════════════════════════════════════════
     # RULE #1 — LANGUAGE LAW — ABSOLUTE HIGHEST PRIORITY
     # ══════════════════════════════════════════════
@@ -269,6 +282,7 @@ def chat(messages: list[dict], context: str | None = None, memory: str | None = 
         messages=full,
         temperature=0.7,
         max_tokens=600,
+        
     )
     return _strip_thinking(resp.choices[0].message.content or "")
 
@@ -292,6 +306,7 @@ def stream_chat(messages: list[dict], context: str | None = None, memory: str | 
         temperature=0.7,
         max_tokens=600,
         stream=True,
+        
     )
     full = ""
     for chunk in stream:
