@@ -144,17 +144,17 @@ def reset_password_page():
     return render_template("reset_password.html")
 
 
-@auth_bp.post("/reset-password")
-def reset_password():
+@auth_bp.post("/forgot-password")
+def forgot_password():
     data = request.get_json(force=True)
-    new_password = data.get("password")
-    access_token = data.get("access_token")
-    if not new_password or not access_token:
-        return jsonify(error="Missing password or token"), 400
+    email = data.get("email")
+    if not email:
+        return jsonify(error="Email required"), 400
     try:
-        client = get_supabase()
-        client.auth.set_session(access_token, data.get("refresh_token", ""))
-        client.auth.update_user({"password": new_password})
+        get_supabase().auth.reset_password_email(
+            email,
+            options={"redirect_to": "https://ana-vkl4.onrender.com/auth/reset-password"}
+        )
         return jsonify(ok=True)
     except Exception as e:
         return jsonify(error=str(e)), 400
