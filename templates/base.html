@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}ANA — Think. Learn. Assist.{% endblock %}</title>
+  <meta name="description" content="{% block description %}ANA is a premium AI workspace. Think. Learn. Assist.{% endblock %}" />
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" id="favicon" href="{{ url_for('static', filename='img/logo-dark.png') }}" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/ana.css') }}" />
+</head>
+<body style="display:flex; flex-direction:column; min-height:100vh;">
+
+  <header class="nav">
+
+    <!-- LOGO -->
+    <a class="nav__brand" href="/">
+      <img
+        id="nav-logo"
+        src="{{ url_for('static', filename='img/logo-dark.png') }}"
+        alt="ANA"
+        width="36"
+        height="36" />
+      <span>ANA</span>
+    </a>
+
+    <!-- RIGHT SIDE -->
+    <nav class="nav__links">
+
+      <button
+        id="theme-toggle"
+        class="btn btn--ghost"
+        type="button"
+        aria-label="Toggle theme">
+        🌙
+      </button>
+
+      <!-- Shown when logged OUT -->
+      <div id="nav-auth-out" style="display:flex; gap:0.5rem; align-items:center;">
+        <a href="/auth/signin" class="btn btn--ghost">Sign in</a>
+        <a href="/auth/signup" class="btn btn--primary">Sign up free</a>
+      </div>
+
+      <!-- Shown when logged IN -->
+      <div id="nav-auth-in" style="display:none; gap:0.5rem; align-items:center;">
+        <button id="shareBtn"
+          style="display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-2);font-size:0.85rem;cursor:pointer;font-family:inherit;transition:border-color 0.2s,color 0.2s;"
+          onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text)'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-2)'"
+          onclick="window.shareConversation && window.shareConversation()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/>
+            <polyline points="16 6 12 2 8 6"/>
+            <line x1="12" y1="2" x2="12" y2="15"/>
+          </svg>
+          Share
+        </button>
+      </div>
+
+    </nav>
+  </header>
+
+  <main style="display:flex; flex-direction:column; flex:1; min-height:0;">{% block content %}{% endblock %}</main>
+
+  {% if not self.hide_footer is defined or not self.hide_footer() %}
+  <footer class="footer">
+    <div>
+      <strong>ANA</strong> · Think. Learn. Assist.
+    </div>
+    <div class="footer__meta">© 2026 ANA. Built with Flask · Supabase · Groq.</div>
+  </footer>
+  {% endif %}
+
+  <script>
+    // ── THEME + LOGO SWITCHER ──
+    const html        = document.documentElement;
+    const themeBtn    = document.getElementById("theme-toggle");
+    const navLogo     = document.getElementById("nav-logo");
+    const favicon     = document.getElementById("favicon");
+
+    const LOGO_DARK   = "{{ url_for('static', filename='img/logo-dark.png') }}";
+    const LOGO_LIGHT  = "{{ url_for('static', filename='img/logo-light.png') }}";
+
+    const MOON = "🌙";
+    const SUN  = "☀️";
+
+    function applyTheme(t) {
+      html.setAttribute("data-theme", t);
+      themeBtn.textContent  = t === "dark" ? SUN : MOON;
+      const logoSrc = t === "dark" ? LOGO_DARK : LOGO_LIGHT;
+      navLogo.src           = logoSrc;
+      favicon.href          = logoSrc;
+      html.style.setProperty("--ana-logo", `url('${logoSrc}')`);
+      localStorage.setItem("ana-theme", t);
+    }
+
+    // Load saved theme or default dark
+    applyTheme(localStorage.getItem("ana-theme") || "dark");
+
+    themeBtn.addEventListener("click", () => {
+      applyTheme(html.getAttribute("data-theme") === "dark" ? "light" : "dark");
+    });
+  </script>
+
+  {% block scripts %}{% endblock %}
+
+  <script>
+  // ── NAV AUTH STATE ──
+  (async () => {
+    const navOut = document.getElementById("nav-auth-out");
+    const navIn  = document.getElementById("nav-auth-in");
+
+    try {
+      const res = await fetch("/auth/me", {
+        credentials: "same-origin",
+        headers: { "Cache-Control": "no-cache", "Pragma": "no-cache" }
+      });
+      const me = await res.json();
+
+      if (me.authenticated) {
+        navOut.style.display = "none";
+        navIn.style.display  = "flex";
+      } else {
+        navOut.style.display = "flex";
+        navIn.style.display  = "none";
+      }
+    } catch (e) {
+      navOut.style.display = "flex";
+      navIn.style.display  = "none";
+    }
+  })();
+  </script>
+
+  <script src="{{ url_for('static', filename='js/ana.js') }}" defer></script>
+
+</body>
+</html>

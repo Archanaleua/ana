@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% block title %}ANA Workspace{% endblock %}
+{% block hide_footer %}true{% endblock %}
+{% block content %}
+
+<style>
+.workspace {
+  display: flex;
+  height: calc(100dvh - 52px);
+  overflow: hidden;
+  position: relative;
+}
+
+body { overflow: hidden; }
+
+.sidebar {
+  width: 260px;
+  min-width: 260px;
+  background: var(--bg-elev);
+  border-right: 1px solid var(--border);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow-y: hidden;
+  transition: width 0.25s ease, min-width 0.25s ease, padding 0.25s ease, opacity 0.2s ease;
+  z-index: 10;
+  height: 100%;
+  justify-content: space-between;
+}
+.sidebar__section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-top: 0;
+  overflow-y: hidden;
+}
+.sidebar__section ul.history {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.sidebar.collapsed {
+  width: 0;
+  min-width: 0;
+  padding: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.chat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.sidebar-float-btn {
+  display: none;
+  position: fixed;
+  top: 80px;
+  left: 8px;
+  z-index: 200;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--text);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+}
+.sidebar-float-btn:hover { background: var(--surface); border-color: var(--accent); }
+
+.sidebar-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.sidebar-toggle-btn {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sidebar-toggle-btn:hover { background: var(--surface); border-color: var(--accent); }
+.composer-wrap {
+  padding-bottom: 0px;
+}
+</style>
+
+<!-- Floating toggle shown when sidebar is closed -->
+<button class="sidebar-float-btn" id="sidebarFloatBtn" title="Open sidebar">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+</button>
+
+<div class="workspace">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-top">
+      <button class="sidebar-toggle-btn" id="sidebarToggleBtn" title="Close sidebar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+      </button>
+      <button id="newChatBtn" class="btn btn--primary btn--block">+ New chat</button>
+    </div>
+    <div class="sidebar__section">
+      <h4 id="historyToggle" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;" onclick="toggleHistory()">
+        History <span id="historyArrow">▾</span>
+      </h4>
+      <ul id="historyList" class="history"></ul>
+    </div>
+    <div style="padding-top:12px;padding-bottom:0px;border-top:1px solid var(--border);position:relative;flex-shrink:0;">
+      <button id="userMenuBtn" style="width:100%;display:flex;align-items:center;gap:10px;background:none;border:none;color:var(--text);cursor:pointer;padding:8px;border-radius:8px;font-family:inherit;font-size:0.9rem;" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background='none'">
+        <div style="width:32px;height:32px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:0.85rem;color:white;flex-shrink:0;" id="userAvatar">A</div>
+        <span id="sidebarEmail" style="flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.82rem;opacity:0.7;"></span>
+      </button>
+      <div id="userMenu" style="display:none;position:absolute;bottom:52px;left:0;right:0;background:var(--bg-elev);border:1px solid var(--border);border-radius:10px;padding:6px;z-index:100;">
+        <a href="/settings" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;color:var(--text);font-size:0.9rem;text-decoration:none;" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background='none'">⚙️ Settings</a>
+        <button id="sidebarSignout" style="width:100%;display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;color:var(--text);font-size:0.9rem;background:none;border:none;cursor:pointer;font-family:inherit;" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background='none'">🚪 Log out</button>
+      </div>
+    </div>
+  </aside>
+
+  <section class="chat">
+    <div id="messages" class="messages">
+      <div class="welcome">
+        <img src="{{ url_for('static', filename='img/logo-dark.png') }}" alt="" width="56" height="56" />
+        <h1>How can ANA help today?</h1>
+        <p class="muted">Think. Learn. Assist.</p>
+        <div class="prompts">
+          <button class="chip" data-p="Explain transformers like I'm a CS sophomore.">Explain transformers</button>
+          <button class="chip" data-p="Draft a 30-second elevator pitch for a Flask + AI startup called ANA.">Elevator pitch</button>
+          <button class="chip" data-p="Generate a Python function that chunks long text for RAG.">Code: RAG chunker</button>
+          <button class="chip" data-p="Summarize my uploaded documents.">Summarize my docs</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="composer-wrap">
+      <div id="filePreview" class="file-preview" style="display:none">
+        <div class="file-preview__card">
+          <span id="filePreviewIcon">📄</span>
+          <span id="filePreviewName"></span>
+          <button type="button" id="filePreviewRemove">✕</button>
+        </div>
+      </div>
+      <form id="composer" class="composer">
+        <input id="uploadInput" type="file" accept=".pdf,.docx,.txt,.md" style="display:none" />
+        <div class="composer-inner">
+          <button type="button" class="composer__attach" onclick="document.getElementById('uploadInput').click()" title="Attach file">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <textarea id="input" placeholder="Ask ANA anything…" rows="1" required></textarea>
+        </div>
+        <button class="btn btn--primary" type="submit">Send</button>
+      </form>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+
+<script>
+  const sidebar = document.getElementById('sidebar');
+  const toggleBtn = document.getElementById('sidebarToggleBtn');
+  const floatBtn = document.getElementById('sidebarFloatBtn');
+  let sidebarOpen = localStorage.getItem('ana-sidebar') !== 'closed';
+
+  function applySidebar() {
+    if (sidebarOpen) {
+      sidebar.classList.remove('collapsed');
+      floatBtn.style.display = 'none';
+    } else {
+      sidebar.classList.add('collapsed');
+      floatBtn.style.display = 'flex';
+    }
+    localStorage.setItem('ana-sidebar', sidebarOpen ? 'open' : 'closed');
+  }
+
+  toggleBtn.addEventListener('click', () => { sidebarOpen = false; applySidebar(); });
+  floatBtn.addEventListener('click', () => { sidebarOpen = true; applySidebar(); });
+  applySidebar();
+</script>
+
+<script>
+  const pendingQ = {{ pending_q | tojson }};
+  if (pendingQ) {
+    document.addEventListener("DOMContentLoaded", () => {
+      const inp = document.getElementById("input");
+      if (inp) { inp.value = pendingQ; inp.focus(); }
+    });
+  }
+</script>
+<script>
+  // User menu in sidebar
+  const userMenuBtn = document.getElementById('userMenuBtn');
+  const userMenu = document.getElementById('userMenu');
+  const sidebarEmail = document.getElementById('sidebarEmail');
+  const userAvatar = document.getElementById('userAvatar');
+
+  userMenuBtn?.addEventListener('click', () => {
+    userMenu.style.display = userMenu.style.display === 'none' ? 'block' : 'none';
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!userMenuBtn?.contains(e.target) && !userMenu?.contains(e.target)) {
+      if (userMenu) userMenu.style.display = 'none';
+    }
+  });
+
+  document.getElementById('sidebarSignout')?.addEventListener('click', async () => {
+    await fetch('/auth/signout', { method: 'POST', credentials: 'same-origin' });
+    window.location.href = '/';
+  });
+
+  // Load email into sidebar
+  fetch('/auth/me', { credentials: 'same-origin' }).then(r => r.json()).then(me => {
+    if (me.authenticated && me.email) {
+      sidebarEmail.textContent = me.email;
+      userAvatar.textContent = me.email[0].toUpperCase();
+    }
+  });
+</script>
+
+<script>
+  let historyVisible = true;
+  function toggleHistory() {
+    historyVisible = !historyVisible;
+    document.getElementById('historyList').style.display = historyVisible ? 'flex' : 'none';
+    document.getElementById('historyArrow').textContent = historyVisible ? '▾' : '▸';
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sign In | ANA</title>
+<link rel="icon" type="image/png" id="favicon" href="{{ url_for('static', filename='img/logo-dark.png') }}" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --cyan: #38BDF8; --blue: #4F7CFF; --violet: #8B5CF6; --magenta: #C026D3;
+    --brand-grad: linear-gradient(100deg,var(--cyan) 0%,var(--blue) 35%,var(--violet) 70%,var(--magenta) 100%);
+    --ease: 0.2s cubic-bezier(0.4,0,0.2,1);
+    --nav-h: 68px; --nav-pad: clamp(20px,4vw,64px);
+  }
+  [data-theme="dark"] {
+    --bg: #07070d; --nav-bg: rgba(7,7,13,0.85); --nav-border: rgba(139,92,246,0.2);
+    --border: rgba(255,255,255,0.07); --border-hi: rgba(139,92,246,0.5);
+    --text: #eef0ff; --text-2: #8b8da8; --text-3: #45465a;
+    --card-bg: rgba(255,255,255,0.03); --card-border: rgba(139,92,246,0.2);
+    --input-bg: #0e0e18; --input-border: rgba(255,255,255,0.08);
+    --chip-bg: rgba(139,92,246,0.1);
+    --orb1: rgba(79,124,255,0.14); --orb2: rgba(192,38,212,0.09);
+    --error: #ff6b6b;
+  }
+  [data-theme="light"] {
+    --bg: #f5f6ff; --nav-bg: rgba(245,246,255,0.9); --nav-border: rgba(139,92,246,0.15);
+    --border: rgba(0,0,0,0.07); --border-hi: rgba(139,92,246,0.4);
+    --text: #0c0d1c; --text-2: #585a7a; --text-3: #aaacc8;
+    --card-bg: rgba(255,255,255,0.9); --card-border: rgba(139,92,246,0.15);
+    --input-bg: #ffffff; --input-border: rgba(0,0,0,0.09);
+    --chip-bg: rgba(139,92,246,0.07);
+    --orb1: rgba(79,124,255,0.08); --orb2: rgba(192,38,212,0.05);
+    --error: #e53e3e;
+  }
+  *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+  html,body { height:100%; font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); transition:background var(--ease),color var(--ease); }
+
+  /* ORBS */
+  .orbs { position:fixed; inset:0; pointer-events:none; z-index:0; }
+  .orb { position:absolute; border-radius:50%; filter:blur(90px); }
+  .orb-1 { width:50vw; height:50vh; max-width:900px; top:-15vh; left:50%; transform:translateX(-50%); background:var(--orb1); }
+  .orb-2 { width:30vw; height:30vw; max-width:500px; bottom:-5vh; right:-5vw; background:var(--orb2); }
+
+  /* NAV */
+  nav {
+    position:fixed; top:0; left:0; right:0; z-index:100;
+    height:var(--nav-h);
+    background:var(--nav-bg); border-bottom:1px solid var(--nav-border);
+    backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+    box-shadow:0 1px 20px rgba(139,92,246,0.07);
+    transition:background var(--ease);
+  }
+  nav::after {
+    content:''; position:absolute; left:0; right:0; bottom:-1px;
+    height:1px; background:var(--brand-grad); opacity:0.3;
+  }
+  .nav-inner { width:100%; height:100%; padding:0 var(--nav-pad); display:flex; align-items:center; justify-content:space-between; }
+  .nav-brand { display:flex; align-items:center; gap:10px; text-decoration:none; }
+  .nav-brand img { width:40px; height:40px; object-fit:contain; filter:drop-shadow(0 0 8px rgba(139,92,246,0.5)); }
+  .nav-brand span { font-family:'Space Grotesk',sans-serif; font-size:22px; font-weight:700; letter-spacing:0.04em; color:var(--text); }
+  .nav-right { display:flex; align-items:center; gap:10px; }
+
+.icon-btn { width:38px; height:38px; border-radius:8px; border:1px solid var(--border); background:transparent; color:var(--text-2); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all var(--ease); }
+.icon-btn:hover { border-color:var(--border-hi); color:var(--violet); background:var(--chip-bg); }
+.icon-btn svg { width:17px; height:17px; }
+
+.btn-ghost { padding:8px 18px; border-radius:8px; border:1px solid var(--border); background:transparent; color:var(--text-2); font-size:14px; font-weight:500; cursor:pointer; text-decoration:none; font-family:'Inter',sans-serif; transition:all var(--ease); }
+.btn-ghost:hover { border-color:var(--border-hi); color:var(--text); background:var(--chip-bg); }
+
+.btn-primary { padding:8px 20px; border-radius:8px; border:none; background:var(--brand-grad); background-size:200% 100%; color:#fff; font-size:14px; font-weight:600; cursor:pointer; text-decoration:none; font-family:'Inter',sans-serif; transition:all var(--ease); box-shadow:0 0 14px rgba(139,92,246,0.3); }
+.btn-primary:hover { transform:translateY(-1px); box-shadow:0 4px 20px rgba(139,92,246,0.5); }
+
+  /* PAGE */
+.page { position:relative; z-index:1; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:calc(var(--nav-h) + 24px) 20px 40px; }
+
+  /* CARD */
+.card {
+    width:100%; max-width:420px;
+    background:var(--card-bg); border:1px solid var(--card-border);
+    border-radius:20px; padding:40px 36px;
+    backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px);
+    box-shadow:0 8px 40px rgba(139,92,246,0.08);
+    animation:fadeUp 0.35s cubic-bezier(0.4,0,0.2,1);
+}
+@keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+
+  /* CARD LOGO */
+.card-logo { display:flex; justify-content:center; margin-bottom:20px; }
+.card-logo img { width:60px; height:60px; object-fit:contain; filter:drop-shadow(0 0 16px rgba(139,92,246,0.6)); }
+
+.card-title { font-family:'Space Grotesk',sans-serif; font-size:28px; font-weight:700; letter-spacing:-0.02em; text-align:center; color:var(--text); margin-bottom:6px; }
+.card-title span { background:var(--brand-grad); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.card-sub { font-size:14px; color:var(--text-2); text-align:center; margin-bottom:28px; }
+
+  /* FORM */
+.form { display:flex; flex-direction:column; gap:12px; }
+.input {
+    width:100%; padding:12px 15px;
+    background:var(--input-bg); border:1.5px solid var(--input-border);
+    border-radius:10px; color:var(--text); font-size:15px; font-family:'Inter',sans-serif;
+    outline:none; transition:border-color var(--ease),box-shadow var(--ease);
+}
+.input::placeholder { color:var(--text-3); }
+.input:focus { border-color:var(--border-hi); box-shadow:0 0 0 3px rgba(139,92,246,0.1); }
+
+.forgot { text-align:right; margin-top:-4px; }
+.forgot a { font-size:13px; color:var(--text-3); text-decoration:none; transition:color var(--ease); }
+.forgot a:hover { color:var(--violet); }
+
+    .submit {
+    width:100%; padding:13px; border-radius:10px; border:none;
+    background:var(--brand-grad); background-size:200% 100%;
+    color:#fff; font-size:15px; font-weight:600; font-family:'Inter',sans-serif;
+    cursor:pointer; transition:all var(--ease); margin-top:4px;
+    box-shadow:0 0 18px rgba(139,92,246,0.28);
+}
+.submit:hover { transform:translateY(-1px); background-position:100% 0; box-shadow:0 6px 24px rgba(139,92,246,0.48); }
+.submit:disabled { opacity:0.6; cursor:not-allowed; transform:none; }
+
+.error {
+    display:none; padding:11px 14px;
+    background:rgba(255,107,107,0.08); border:1px solid rgba(255,107,107,0.22);
+    border-radius:9px; color:var(--error); font-size:13px; text-align:center;
+}
+.error.show { display:block; }
+
+.card-foot { text-align:center; margin-top:20px; font-size:14px; color:var(--text-2); }
+.card-foot a { background:var(--brand-grad); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; text-decoration:none; font-weight:600; }
+
+.footnote { position:fixed; bottom:14px; left:0; right:0; text-align:center; font-size:11.5px; color:var(--text-3); z-index:10; pointer-events:none; }
+.footnote a { color:var(--text-3); text-decoration:underline; pointer-events:all; }
+.footnote a:hover { color:var(--violet); }
+
+@media(max-width:480px) { .card { padding:32px 24px; border-radius:16px; } .btn-ghost { display:none; } }
+</style>
+</head>
+<body>
+<div class="orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div></div>
+
+<nav>
+<div class="nav-inner">
+    <a href="/" class="nav-brand">
+    <img id="navLogo" src="{{ url_for('static', filename='img/logo-dark.png') }}" alt="ANA" />
+    <span>ANA</span>
+    </a>
+    <div class="nav-right">
+    <button class="icon-btn" id="themeBtn" aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+    </button>
+    <a href="/auth/signin" class="btn-ghost">Sign in</a>
+    <a href="/auth/signup" class="btn-primary">Sign up free</a>
+    </div>
+</div>
+</nav>
+
+<div class="page">
+<div class="card">
+    <div class="card-logo">
+    <img id="cardLogo" src="{{ url_for('static', filename='img/logo-dark.png') }}" alt="ANA" />
+    </div>
+    <h1 class="card-title">Welcome <span>Back</span></h1>
+    <p class="card-sub">Sign in to continue using ANA</p>
+    <div class="error" id="errMsg"></div>
+    <form class="form" id="loginForm" autocomplete="on">
+    <input class="input" type="email" id="email" placeholder="Email address" autocomplete="email" required />
+    <input class="input" type="password" id="password" placeholder="Password" autocomplete="current-password" required />
+    <div class="forgot"><a href="/auth/forgot-password">Forgot password?</a></div>
+    <button class="submit" type="submit" id="submitBtn">Sign In</button>
+    </form>
+    <div class="card-foot">Don't have an account? <a href="/auth/signup">Create one</a></div>
+</div>
+</div>
+
+<p class="footnote">ANA can make mistakes. <a href="#">Privacy</a> · <a href="#">Terms</a></p>
+
+<script>
+const html = document.documentElement;
+const tBtn = document.getElementById('themeBtn');
+const navLogo = document.getElementById('navLogo');
+const cardLogo = document.getElementById('cardLogo');
+const favicon = document.getElementById('favicon');
+const DARK = "{{ url_for('static', filename='img/logo-dark.png') }}";
+const LIGHT = "{{ url_for('static', filename='img/logo-light.png') }}";
+const MOON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>`;
+const SUN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
+
+function applyTheme(t) {
+    html.setAttribute('data-theme', t);
+    tBtn.innerHTML = t === 'dark' ? SUN : MOON;
+    const src = t === 'dark' ? DARK : LIGHT;
+    navLogo.src = cardLogo.src = src;
+    if(favicon) favicon.href = src;
+    localStorage.setItem('ana-theme', t);
+}
+applyTheme(localStorage.getItem('ana-theme') || 'dark');
+tBtn.addEventListener('click', () => applyTheme(html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'));
+
+const errMsg = document.getElementById('errMsg');
+const submitBtn = document.getElementById('submitBtn');
+function showErr(m) { errMsg.textContent = m; errMsg.classList.add('show'); }
+function hideErr() { errMsg.classList.remove('show'); }
+
+document.getElementById('loginForm').addEventListener('submit', async function(e) {
+    e.preventDefault(); hideErr();
+    submitBtn.disabled = true; submitBtn.textContent = 'Signing in…';
+    try {
+    const res = await fetch('/auth/signin', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ email:document.getElementById('email').value, password:document.getElementById('password').value }) });
+    const data = await res.json();
+    if (data.ok) { submitBtn.textContent = '✓ Success!'; window.location.href = '/app'; }
+    else { showErr(data.error || 'Login failed. Please try again.'); submitBtn.disabled = false; submitBtn.textContent = 'Sign In'; }
+    } catch { showErr('Network error. Please try again.'); submitBtn.disabled = false; submitBtn.textContent = 'Sign In'; }
+});
+</script>
+</body>
+</html>

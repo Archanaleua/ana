@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ANA — Think. Learn. Assist.</title>
+<link rel="icon" type="image/png" id="favicon" href="{{ url_for('static', filename='img/logo-dark.png') }}" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --cyan:          #38BDF8;
+    --blue:          #4F7CFF;
+    --violet:        #8B5CF6;
+    --magenta:       #C026D3;
+    --brand-grad: linear-gradient(100deg, var(--cyan) 0%, var(--blue) 35%, var(--violet) 70%, var(--magenta) 100%);
+    --ease:          0.2s cubic-bezier(0.4,0,0.2,1);
+
+    /* Fluid sizing tokens — scale with viewport, clamp at sane min/max */
+    --nav-h:         clamp(72px, 7.5vh, 100px);
+    --nav-pad-x:     clamp(24px, 4.5vw, 72px);
+    --icon-logo:     clamp(42px, 3.4vw, 56px);
+    --hero-logo:     clamp(64px, 7vw, 104px);
+    --greet-size:    clamp(28px, 4vw, 56px);
+    --sub-size:      clamp(14px, 1.1vw, 17px);
+    --input-max:     min(700px, 56vw);
+    --chip-font:     clamp(12.5px, 1vw, 14.5px);
+  }
+
+  [data-theme="dark"] {
+    --bg:          #07070d;
+    --nav-bg:      rgba(7,7,13,0.82);
+    --border:      rgba(255,255,255,0.07);
+    --nav-border:  rgba(139,92,246,0.22);
+    --border-hi:   rgba(139,92,246,0.5);
+    --text:        #eef0ff;
+    --text-2:      #8b8da8;
+    --text-3:      #45465a;
+    --input-bg:    #111118;
+    --chip-bg:     rgba(79,124,255,0.10);
+    --chip-border: rgba(139,92,246,0.25);
+    --chip-text:   #b8b8f5;
+    --chip-hover:  rgba(139,92,246,0.20);
+    --orb1: rgba(79,124,255,0.16);
+    --orb2: rgba(192,38,212,0.10);
+  }
+
+  [data-theme="light"] {
+    --bg:          #f5f6ff;
+    --nav-bg:      rgba(245,246,255,0.88);
+    --border:      rgba(0,0,0,0.08);
+    --nav-border:  rgba(139,92,246,0.18);
+    --border-hi:   rgba(139,92,246,0.4);
+    --text:        #0c0d1c;
+    --text-2:      #585a7a;
+    --text-3:      #aaacc8;
+    --input-bg:    #ffffff;
+    --chip-bg:     rgba(79,124,255,0.07);
+    --chip-border: rgba(139,92,246,0.18);
+    --chip-text:   #6526c9;
+    --chip-hover:  rgba(139,92,246,0.13);
+    --orb1: rgba(79,124,255,0.09);
+    --orb2: rgba(192,38,212,0.06);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    transition: background var(--ease), color var(--ease);
+  }
+
+  /* ── ORBS ── */
+  .orbs { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  .orb { position: absolute; border-radius: 50%; filter: blur(100px); }
+  .orb-1 { width: 45vw; height: 45vh; max-width: 800px; max-height: 560px; top: -10vh; left: 50%; transform: translateX(-50%); background: var(--orb1); }
+  .orb-2 { width: 24vw; height: 24vw; max-width: 420px; max-height: 420px; bottom: 0; right: -5vw; background: var(--orb2); }
+
+  /* ── NAV — true edge-to-edge, no centered max-width container ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+    height: var(--nav-h);
+    width: 100%;
+    backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    background: var(--nav-bg);
+    border-bottom: 1px solid var(--nav-border);
+    box-shadow: 0 1px 24px rgba(139,92,246,0.10);
+    transition: background var(--ease), border-color var(--ease);
+  }
+  nav::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; bottom: -1px;
+    height: 1px;
+    background: var(--brand-grad);
+    opacity: 0.35;
+  }
+  .nav-inner {
+    width: 100%;
+    height: 100%;
+    padding: 0 var(--nav-pad-x);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px; text-decoration: none; flex-shrink: 0;
+  }
+  .logo-img {
+    width: var(--icon-logo); height: var(--icon-logo); object-fit: contain;
+    filter: drop-shadow(0 0 10px rgba(139,92,246,0.45));
+  }
+  .logo-text {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(20px, 1.8vw, 28px);
+    font-weight: 700; letter-spacing: 0.04em;
+    color: var(--text);
+  }
+
+  .nav-right { display: flex; align-items: center; gap: clamp(6px, 0.8vw, 12px); flex-shrink: 0; }
+
+  .icon-btn {
+    width: clamp(38px, 2.8vw, 46px); height: clamp(38px, 2.8vw, 46px);
+    border-radius: 9px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text-2); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all var(--ease);
+  }
+  .icon-btn:hover { border-color: var(--border-hi); color: var(--violet); background: var(--chip-bg); }
+  .icon-btn svg { width: 19px; height: 19px; }
+
+  .btn-in {
+    padding: clamp(9px, 0.9vw, 13px) clamp(18px, 1.5vw, 26px);
+    border-radius: 9px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text-2); font-size: clamp(14.5px, 1.05vw, 16.5px); font-weight: 500;
+    cursor: pointer; text-decoration: none; font-family: 'Inter', sans-serif;
+    transition: all var(--ease); white-space: nowrap;
+  }
+  .btn-in:hover { border-color: var(--border-hi); color: var(--text); background: var(--chip-bg); }
+
+  .btn-up {
+    padding: clamp(9px, 0.9vw, 13px) clamp(20px, 1.7vw, 28px);
+    border-radius: 9px; border: none;
+    background: var(--brand-grad);
+    background-size: 200% 100%;
+    color: #fff; font-size: clamp(14.5px, 1.05vw, 16.5px); font-weight: 600;
+    cursor: pointer; text-decoration: none; font-family: 'Inter', sans-serif;
+    transition: all var(--ease), background-position 0.4s ease; white-space: nowrap;
+    box-shadow: 0 0 16px rgba(139,92,246,0.36);
+  }
+  .btn-up:hover { transform: translateY(-1px); background-position: 100% 0; box-shadow: 0 4px 22px rgba(139,92,246,0.55); }
+
+  /* ── STAGE ── */
+  .stage {
+    position: relative; z-index: 1;
+    height: 100vh; width: 100%;
+    padding-top: var(--nav-h);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding-left: 24px; padding-right: 24px;
+  }
+
+  .hero-logo {
+    width: var(--hero-logo); height: var(--hero-logo); object-fit: contain;
+    margin-bottom: clamp(16px, 2vh, 26px);
+    filter: drop-shadow(0 0 30px rgba(139,92,246,0.45));
+  }
+
+  .greeting {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: var(--greet-size);
+    font-weight: 700; letter-spacing: -0.02em; line-height: 1.1;
+    text-align: center; color: var(--text);
+    margin-bottom: clamp(8px, 1vh, 14px);
+    max-width: 90vw;
+  }
+  .greeting-name {
+    background: var(--brand-grad);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+
+  .subline {
+    font-size: var(--sub-size); color: var(--text-2); text-align: center;
+    margin-bottom: clamp(24px, 4vh, 44px); letter-spacing: 0.01em;
+  }
+
+  /* ── INPUT — scales with viewport, capped sensibly ── */
+  .input-wrap { width: 100%; max-width: var(--input-max); margin-bottom: clamp(14px, 2vh, 22px); }
+  .input-box {
+    display: flex; align-items: flex-end;
+    background: var(--input-bg);
+    border: 1.5px solid var(--border);
+    border-radius: 18px;
+    padding: clamp(8px, 0.9vw, 12px) clamp(8px, 0.9vw, 12px) clamp(8px, 0.9vw, 12px) clamp(16px, 1.6vw, 22px);
+    gap: 8px;
+    transition: border-color var(--ease), box-shadow var(--ease);
+  }
+  .input-box:focus-within {
+    border-color: var(--border-hi);
+    box-shadow: 0 0 0 3px rgba(139,92,246,0.12), 0 6px 30px rgba(139,92,246,0.10);
+  }
+  .input-field {
+    flex: 1; border: none; background: transparent;
+    color: var(--text); font-size: clamp(14.5px, 1.05vw, 16.5px); font-family: 'Inter', sans-serif;
+    outline: none; resize: none; line-height: 1.5;
+    max-height: 120px; overflow-y: auto;
+    caret-color: var(--violet);
+    padding: 4px 0;
+  }
+  .input-field::placeholder { color: var(--text-3); }
+
+  .input-side { display: flex; align-items: center; gap: 6px; flex-shrink: 0; padding-bottom: 2px; }
+
+  .attach-btn {
+    width: clamp(30px, 2.2vw, 36px); height: clamp(30px, 2.2vw, 36px);
+    border-radius: 8px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text-3); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all var(--ease);
+  }
+  .attach-btn:hover { color: var(--text-2); border-color: var(--border-hi); background: var(--chip-bg); }
+  .attach-btn svg { width: 14px; height: 14px; }
+
+  .send-btn {
+    width: clamp(34px, 2.4vw, 42px); height: clamp(34px, 2.4vw, 42px);
+    border-radius: 10px; border: none;
+    background: var(--brand-grad);
+    background-size: 200% 100%;
+    color: #fff; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all var(--ease), background-position 0.4s ease;
+    box-shadow: 0 0 14px rgba(139,92,246,0.42); flex-shrink: 0;
+  }
+  .send-btn:hover { transform: scale(1.07); background-position: 100% 0; box-shadow: 0 0 24px rgba(139,92,246,0.65); }
+  .send-btn svg { width: 16px; height: 16px; }
+
+  /* ── CHIPS ── */
+  .chips {
+    display: flex; flex-wrap: wrap; gap: clamp(7px, 0.7vw, 10px);
+    justify-content: center; max-width: var(--input-max); width: 100%;
+  }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: clamp(6px, 0.6vw, 9px) clamp(13px, 1.1vw, 18px);
+    border-radius: 100px;
+    border: 1px solid var(--chip-border); background: var(--chip-bg);
+    color: var(--chip-text); font-size: var(--chip-font); font-weight: 500;
+    cursor: pointer; text-decoration: none; font-family: 'Inter', sans-serif;
+    transition: all var(--ease); user-select: none; white-space: nowrap;
+  }
+  .chip:hover {
+    background: var(--chip-hover); border-color: var(--border-hi);
+    color: var(--text); transform: translateY(-1px);
+  }
+
+  /* ── FOOTER NOTE ── */
+  .foot-note {
+    position: fixed; bottom: clamp(12px, 2vh, 20px); left: 0; right: 0;
+    text-align: center; font-size: clamp(11px, 0.8vw, 12.5px); color: var(--text-3); z-index: 10;
+    pointer-events: none;
+  }
+  .foot-note a { color: var(--text-3); text-decoration: underline; pointer-events: all; }
+  .foot-note a:hover { color: var(--violet); }
+
+  /* ── SMALL SCREENS ── */
+  @media (max-width: 580px) {
+    :root {
+      --input-max: 92vw;
+    }
+    .nav-right { gap: 6px; }
+    .btn-in { padding: 6px 12px; }
+    .btn-up { padding: 6px 14px; }
+  }
+
+  /* ── VERY SHORT VIEWPORTS (laptop browser w/ lots of chrome) ── */
+  @media (max-height: 700px) {
+    :root {
+      --hero-logo: clamp(48px, 6vh, 76px);
+      --greet-size: clamp(22px, 3.2vh, 40px);
+    }
+    .subline { margin-bottom: clamp(16px, 2.5vh, 28px); }
+    .hero-logo { margin-bottom: clamp(10px, 1.4vh, 18px); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="orbs">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+</div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">
+      <img class="logo-img" id="navLogo"
+        src="{{ url_for('static', filename='img/logo-dark.png') }}" alt="ANA logo" />
+      <span class="logo-text">ANA</span>
+    </a>
+    <div class="nav-right">
+      <button class="icon-btn" id="themeBtn" aria-label="Toggle theme"></button>
+      <a href="/auth/signin" class="btn-in">Sign in</a>
+      <a href="/auth/signup" class="btn-up">Sign up free</a>
+    </div>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<main class="stage">
+
+  <img class="hero-logo" id="heroLogo"
+    src="{{ url_for('static', filename='img/logo-dark.png') }}" alt="ANA" />
+
+  <h1 class="greeting">What can I help you with<span class="greeting-name"> today?</span></h1>
+  <p class="subline">Think. Learn. Assist. — your personal AI workspace.</p>
+
+  <div class="input-wrap">
+    <div class="input-box">
+      <textarea
+        class="input-field" id="mainInput" rows="1"
+        placeholder="Ask anything — code, learn, analyze a PDF…"
+        autocomplete="off" autofocus
+      ></textarea>
+      <div class="input-side">
+        <button class="attach-btn" title="Attach file" aria-label="Attach file">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+          </svg>
+        </button>
+        <button class="send-btn" id="sendBtn" aria-label="Send">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="19" x2="12" y2="5"/>
+            <polyline points="5 12 12 5 19 12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="chips">
+    <a href="#" class="chip" data-p="Explain machine learning to me">🎓 Learn</a>
+    <a href="#" class="chip" data-p="Help me debug my Python code">⚙️ Build</a>
+    <a href="#" class="chip" data-p="Review my resume and suggest improvements">💼 Career</a>
+    <a href="#" class="chip" data-p="Analyze this PDF document for me">📄 PDF</a>
+    <a href="#" class="chip" data-p="Write a React component for me">💻 Code</a>
+    <a href="#" class="chip" data-p="Help me design a clean UI layout">🎨 Design</a>
+  </div>
+
+</main>
+
+<p class="foot-note">ANA can make mistakes. <a href="#">Privacy</a> · <a href="#">Terms</a></p>
+
+<script>
+  /* THEME — swaps both the color tokens AND the logo image */
+  const html = document.documentElement;
+  const tBtn = document.getElementById('themeBtn');
+  const navLogo = document.getElementById('navLogo');
+  const heroLogo = document.getElementById('heroLogo');
+  const favicon = document.getElementById('favicon');
+
+  const LOGO_DARK  = "{{ url_for('static', filename='img/logo-dark.png') }}";
+  const LOGO_LIGHT = "{{ url_for('static', filename='img/logo-light.png') }}";
+
+  const MOON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>`;
+  const SUN  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`;
+
+  function applyTheme(t) {
+    html.setAttribute('data-theme', t);
+    tBtn.innerHTML = t === 'dark' ? SUN : MOON;
+
+    // Dark theme → use the logo rendered for dark backgrounds
+    // Light theme → use the logo rendered for light backgrounds
+    const logoSrc = t === 'dark' ? LOGO_DARK : LOGO_LIGHT;
+    navLogo.src = logoSrc;
+    heroLogo.src = logoSrc;
+    favicon.href = logoSrc;
+
+    localStorage.setItem('ana-theme', t);
+  }
+  applyTheme(localStorage.getItem('ana-theme') || 'dark');
+  tBtn.addEventListener('click', () => applyTheme(html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'));
+
+  /* AUTO-GROW TEXTAREA */
+  const ta = document.getElementById('mainInput');
+  ta.addEventListener('input', () => {
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+  });
+
+  /* CHIPS */
+  document.querySelectorAll('.chip').forEach(c => {
+    c.addEventListener('click', e => {
+      e.preventDefault();
+      ta.value = c.dataset.p;
+      ta.dispatchEvent(new Event('input'));
+      ta.focus();
+    });
+  });
+
+  /* SEND */
+  function send() {
+    const v = ta.value.trim();
+    if (v) window.location.href = '/start?q=' + encodeURIComponent(v);
+    else window.location.href = '/start';
+  }
+  document.getElementById('sendBtn').addEventListener('click', send);
+  ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+</script>
+</body>
+</html>

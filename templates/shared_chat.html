@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Shared Chat | ANA</title>
+<link rel="icon" type="image/png" id="favicon" href="/static/img/logo-dark.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<style>
+:root {
+--cyan:#38BDF8;--blue:#4F7CFF;--violet:#8B5CF6;--magenta:#C026D3;
+--brand-grad:linear-gradient(100deg,var(--cyan) 0%,var(--blue) 35%,var(--violet) 70%,var(--magenta) 100%);
+--ease:0.2s cubic-bezier(0.4,0,0.2,1);
+}
+[data-theme="dark"]{--bg:#07070d;--nav-bg:rgba(7,7,13,0.85);--nav-border:rgba(139,92,246,0.2);--text:#eef0ff;--text-2:#8b8da8;--border:rgba(255,255,255,0.07);--surface:rgba(255,255,255,0.04);}
+[data-theme="light"]{--bg:#f5f6ff;--nav-bg:rgba(245,246,255,0.9);--nav-border:rgba(139,92,246,0.15);--text:#0c0d1c;--text-2:#585a7a;--border:rgba(0,0,0,0.07);--surface:rgba(255,255,255,0.9);}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{min-height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);}
+nav{position:sticky;top:0;z-index:100;height:64px;background:var(--nav-bg);border-bottom:1px solid var(--nav-border);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:space-between;padding:0 32px;}
+nav::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:1px;background:var(--brand-grad);opacity:0.3;}
+.nav-brand{display:flex;align-items:center;gap:10px;text-decoration:none;}
+.nav-brand img{width:36px;height:36px;object-fit:contain;filter:drop-shadow(0 0 8px rgba(139,92,246,0.5));}
+.nav-brand span{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;color:var(--text);}
+.nav-right{display:flex;align-items:center;gap:10px;}
+.badge{padding:4px 12px;border-radius:999px;background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.3);color:#a78bfa;font-size:12px;font-weight:600;}
+.btn-primary{padding:8px 18px;border-radius:8px;border:none;background:var(--brand-grad);color:#fff;font-size:14px;font-weight:600;cursor:pointer;text-decoration:none;font-family:'Inter',sans-serif;}
+.container{max-width:800px;margin:0 auto;padding:40px 20px;}
+.chat-header{text-align:center;margin-bottom:32px;}
+.chat-header h1{font-family:'Space Grotesk',sans-serif;font-size:1.4rem;font-weight:700;margin-bottom:8px;}
+.chat-header p{color:var(--text-2);font-size:0.9rem;}
+.messages{display:flex;flex-direction:column;gap:20px;}
+.msg-row{display:flex;align-items:flex-start;gap:10px;}
+.msg-row--user{justify-content:flex-end;}
+.msg-row--bot{justify-content:flex-start;}
+.msg-logo{width:30px;height:30px;flex-shrink:0;margin-top:4px;background-image:var(--ana-logo,none);background-size:contain;background-repeat:no-repeat;background-position:center;filter:drop-shadow(0 0 6px rgba(124,92,255,0.4));}
+.msg{max-width:78%;padding:12px 16px;border-radius:18px;line-height:1.6;word-wrap:break-word;}
+.msg--user{background:linear-gradient(135deg,rgba(124,92,255,0.18),rgba(34,211,238,0.10));border:1px solid rgba(124,92,255,0.25);max-width:60%;}
+.msg--bot{background:transparent;border:none;width:100%;max-width:100%;padding:4px 0;}
+.msg--bot h1,.msg--bot h2,.msg--bot h3{margin:0.8em 0 0.4em;font-size:1.1rem;}
+.msg--bot p{margin:0.5em 0;}
+.msg--bot ul,.msg--bot ol{margin:0.5em 0;padding-left:1.4em;}
+.msg--bot pre{background:rgba(0,0,0,0.3);padding:10px;border-radius:8px;overflow-x:auto;margin:0.6em 0;}
+.msg--bot code{font-size:0.88rem;}
+.loading{text-align:center;padding:60px;color:var(--text-2);}
+.error{text-align:center;padding:60px;color:#ef4444;}
+.footer-note{text-align:center;margin-top:40px;padding:20px;color:var(--text-2);font-size:0.85rem;border-top:1px solid var(--border);}
+</style>
+</head>
+<body>
+<nav>
+<a href="/" class="nav-brand">
+<img id="navLogo" src="/static/img/logo-dark.png" alt="ANA" />
+<span>ANA</span>
+</a>
+<div class="nav-right">
+<span class="badge">Shared Chat</span>
+<a href="/auth/signup" class="btn-primary">Try ANA Free</a>
+</div>
+</nav>
+
+<div class="container">
+<div class="chat-header">
+<h1>Shared Conversation</h1>
+<p>This chat was shared from ANA — Think. Learn. Assist.</p>
+</div>
+<div id="messages" class="messages">
+<div class="loading">Loading conversation...</div>
+</div>
+<div class="footer-note">
+Shared via <strong>ANA</strong> · <a href="/auth/signup" style="color:#a78bfa;">Create your own AI workspace →</a>
+</div>
+</div>
+
+<script>
+const shareId = "{{ share_id }}";
+const LOGO_DARK = "/static/img/logo-dark.png";
+const LOGO_LIGHT = "/static/img/logo-light.png";
+
+function applyTheme(t) {
+document.documentElement.setAttribute("data-theme", t);
+const src = t === "dark" ? LOGO_DARK : LOGO_LIGHT;
+document.getElementById("navLogo").src = src;
+document.documentElement.style.setProperty("--ana-logo", `url('${src}')`);
+}
+applyTheme(localStorage.getItem("ana-theme") || "dark");
+
+async function loadSharedChat() {
+const messagesEl = document.getElementById("messages");
+try {
+const res = await fetch(`/chat/share/${shareId}/messages`);
+const data = await res.json();
+if (data.error) {
+    messagesEl.innerHTML = `<div class="error">❌ ${data.error}</div>`;
+    return;
+}
+messagesEl.innerHTML = "";
+data.messages.forEach(m => {
+    const row = document.createElement("div");
+    row.className = `msg-row msg-row--${m.role === "user" ? "user" : "bot"}`;
+    if (m.role !== "user") {
+    const logo = document.createElement("div");
+    logo.className = "msg-logo";
+    row.appendChild(logo);
+    }
+    const bubble = document.createElement("div");
+    bubble.className = `msg msg--${m.role === "user" ? "user" : "bot"}`;
+    bubble.innerHTML = m.role === "user"
+    ? m.content.replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    : marked.parse(m.content);
+    row.appendChild(bubble);
+    messagesEl.appendChild(row);
+});
+} catch(err) {
+messagesEl.innerHTML = `<div class="error">❌ Failed to load conversation</div>`;
+}
+}
+
+loadSharedChat();
+</script>
+</body>
+</html>

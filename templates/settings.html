@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Settings — ANA{% endblock %}
+{% block hide_footer %}{% endblock %}
+{% block content %}
+<div class="auth-page">
+<div class="auth-card" style="max-width: 560px;">
+    <div style="text-align:center; margin-bottom:24px;">
+    <h1 style="font-size:1.6rem;">⚙️ Settings</h1>
+    <p class="muted">Manage your account settings</p>
+    </div>
+
+    <!-- Change Password -->
+    <div class="settings-section">
+    <h3 style="margin-bottom:16px;">🔒 Change Password</h3>
+    <div style="display:flex; flex-direction:column; gap:12px;">
+        <input id="new-password" type="password" placeholder="New password" style="width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:0.95rem;" />
+        <input id="confirm-password" type="password" placeholder="Confirm new password" style="width:100%; padding:12px 14px; border-radius:10px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:0.95rem;" />
+    </div>
+    <div id="pwd-msg" style="margin-top:10px; font-size:0.9rem;"></div>
+    <button class="btn btn--primary" style="margin-top:14px;" onclick="changePassword()">Update Password</button>
+    </div>
+
+    <hr style="border:none; border-top:1px solid var(--border); margin:24px 0;" />
+
+    <!-- Theme -->
+    <div class="settings-section">
+    <h3 style="margin-bottom:16px;">🎨 Theme</h3>
+    <div style="display:flex; gap:10px;">
+        <button class="btn btn--ghost" onclick="setTheme('dark')" id="btn-dark">🌙 Dark</button>
+        <button class="btn btn--ghost" onclick="setTheme('light')" id="btn-light">☀️ Light</button>
+    </div>
+    </div>
+
+    <hr style="border:none; border-top:1px solid var(--border); margin:24px 0;" />
+
+    <!-- Clear Memory -->
+    <div class="settings-section">
+    <h3 style="margin-bottom:8px;">🧠 Memory</h3>
+    <p class="muted" style="font-size:0.9rem; margin-bottom:14px;">ANA remembers facts about you. You can clear this anytime.</p>
+    <button class="btn btn--ghost" onclick="clearMemory()" style="border-color:orange; color:orange;">🗑️ Clear My Memory</button>
+    <div id="mem-msg" style="margin-top:10px; font-size:0.9rem;"></div>
+    </div>
+
+    <hr style="border:none; border-top:1px solid var(--border); margin:24px 0;" />
+
+    <!-- Danger Zone -->
+    <div class="settings-section">
+    <h3 style="margin-bottom:8px; color:#ef4444;">⚠️ Danger Zone</h3>
+    <p class="muted" style="font-size:0.9rem; margin-bottom:14px;">Permanently delete your account and all data.</p>
+    <button class="btn btn--ghost" onclick="deleteAccount()" style="border-color:#ef4444; color:#ef4444;">🗑️ Delete Account</button>
+    <div id="del-msg" style="margin-top:10px; font-size:0.9rem;"></div>
+    </div>
+
+    <div style="margin-top:24px;">
+    <a href="/app" class="btn btn--ghost">← Back to Chat</a>
+    </div>
+</div>
+</div>
+
+<style>
+.settings-section { margin-bottom: 4px; }
+</style>
+
+<script>
+function setTheme(t) {
+document.documentElement.setAttribute("data-theme", t);
+localStorage.setItem("ana-theme", t);
+document.getElementById("btn-dark").style.borderColor = t === "dark" ? "var(--accent)" : "";
+document.getElementById("btn-light").style.borderColor = t === "light" ? "var(--accent)" : "";
+}
+
+// highlight current theme
+const cur = localStorage.getItem("ana-theme") || "dark";
+setTheme(cur);
+
+async function changePassword() {
+const pwd = document.getElementById("new-password").value;
+const confirm = document.getElementById("confirm-password").value;
+const msg = document.getElementById("pwd-msg");
+if (!pwd || pwd.length < 6) { msg.style.color="red"; msg.textContent="❌ Password must be at least 6 characters"; return; }
+if (pwd !== confirm) { msg.style.color="red"; msg.textContent="❌ Passwords don't match"; return; }
+const res = await fetch("/api/change-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ password: pwd }),
+});
+const data = await res.json();
+if (data.ok) { msg.style.color="var(--accent)"; msg.textContent="✅ Password updated!"; }
+else { msg.style.color="red"; msg.textContent="❌ " + (data.error || "Failed"); }
+}
+
+async function clearMemory() {
+if (!confirm("Clear all memory? ANA will forget everything about you.")) return;
+const res = await fetch("/api/clear-memory", { method: "POST", credentials: "same-origin" });
+const data = await res.json();
+const msg = document.getElementById("mem-msg");
+if (data.ok) { msg.style.color="var(--accent)"; msg.textContent="✅ Memory cleared!"; }
+else { msg.style.color="red"; msg.textContent="❌ Failed"; }
+}
+
+async function deleteAccount() {
+if (!confirm("Delete your account? This cannot be undone!")) return;
+if (!confirm("Are you sure? ALL your data will be permanently deleted.")) return;
+const res = await fetch("/api/delete-account", { method: "POST", credentials: "same-origin" });
+const data = await res.json();
+if (data.ok) { window.location.href = "/"; }
+else { document.getElementById("del-msg").textContent="❌ " + (data.error || "Failed"); }
+}
+</script>
+{% endblock %}
