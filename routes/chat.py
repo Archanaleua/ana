@@ -49,7 +49,7 @@ Return only valid JSON, nothing else."""
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
             max_tokens=400,
-            reasoning_effort="none",
+            
         )
         text = resp.choices[0].message.content.strip()
         text = text.replace("```json", "").replace("```", "").strip()
@@ -90,17 +90,38 @@ def _detect_language(text: str) -> str:
 
     # Strong Hindi signals — if any of these found → definitely Hindi
     strong_hindi = {
-        "yaar", "kya", "bhai", "mujhe", "nahi", "mera", "tera",
-        "haan", "chahiye", "bahut", "zyada", "abhi", "lekin",
-        "raha", "rahi", "tum", "hota", "batao", "kaise", "kaisa",
-        "phir", "woh", "yeh", "aur", "main", "dost", "ghar"
+    "yaar", "kya", "bhai", "mujhe", "nahi", "mera", "tera",
+    "haan", "chahiye", "bahut", "zyada", "abhi", "lekin",
+    "raha", "rahi", "tum", "hota", "batao", "kaise", "kaisa",
+    "phir", "woh", "yeh", "aur", "main", "dost", "ghar",
+    # Added
+    "kese", "kese ho", "kaisa", "theek", "bilkul", "shukriya",
+    "dhanyawad", "namaste", "matlab", "samjha", "pata",
+    "tha", "thi", "hain", "mere", "teri",
+    "uska", "unka", "kyun", "kab", "kahan", "kitna", "bohot",
     }
 
     # Strong Gujarati signals — if any of these found → definitely Gujarati
     strong_gujarati = {
-        "kem", "cho", "chhe", "nathi", "tamaru", "tamaro",
-        "tamari", "aavjo", "olakho", "ghanu", "thodu", "saru",
-        "maja", "bau", "javu", "avu", "tame", "mane"
+    # Original
+    "kem", "cho", "chhe", "nathi", "tamaru", "tamaro",
+    "tamari", "aavjo", "olakho", "ghanu", "thodu", "saru",
+    "maja", "bau", "javu", "avu", "tame", "mane",
+    # Added common Gujarati words
+    "su", "shu", "che", "hatu", "hati", "hata",
+    "karo", "kari", "karu", "karjo", "karva",
+    "nai","pan", "ane", "pachi",
+    "kyare", "kyathi", "kyan", "kem", "kevu", "kevi",
+    "maro", "mari", "mara", "taro", "tari", "tara",
+    "aapo", "avjo", "jaav", "jaavo",
+    "ben",
+    "game", "gamtu", "gamti", "nathi gamtu",
+    "aayu", "gayu", "gai", "avyu", "avvi",
+    "boljo", "kaho", "sambhlo", "juo",
+    "saras", "mast", "majama", "mazama",
+    "tamne", "tane", "mane", "ane", "eni", "ena",
+    "hu", "hun", "ame", "apa", "tame",
+    "shu", "che", "hoy", "hoi",
     }
 
     # Hindi wins first — most important
@@ -140,7 +161,7 @@ def _detect_language(text: str) -> str:
             }],
             temperature=0,
             max_tokens=10,
-            reasoning_effort="none",
+            
         )
         lang = resp.choices[0].message.content.strip()
         # Clean any extra text
