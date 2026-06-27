@@ -118,6 +118,8 @@ SYSTEM_PROMPT = (
     # MEMORY
     # ══════════════════════════════════════════════
     "MEMORY RULES: "
+    "If memory is empty → you do NOT know the user's name. NEVER guess or assume name. "
+    "Only use name if it exists in USER MEMORY section. "
     "Use known facts about user naturally and confidently. "
     "If user asks who am i or who i am → reply in EXACTLY 1 line only. "
     "Format: You are [name in current reply language script]! 😊 "
