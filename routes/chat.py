@@ -300,6 +300,15 @@ def send():
             try:
                 memory_facts = _extract_memory(user_msg)
                 for key, value in memory_facts.items():
+                    # Only save name if user explicitly introduced themselves
+                    if key.startswith("name"):
+                        # Check if message has clear name introduction
+                        intro_signals = [
+                            "my name is", "i am", "i'm", "mera naam", 
+                            "maru naam", "call me", "naam che"
+                        ]
+                        if not any(signal in user_msg.lower() for signal in intro_signals):
+                            continue  # skip saving name if not introduced
                     sb.table("memory").upsert({
                         "user_id": user_id,
                         "key": key,
