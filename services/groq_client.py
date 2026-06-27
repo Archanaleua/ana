@@ -1,11 +1,50 @@
 """Groq chat completion wrapper."""
 import os
 import re
+import time
 from functools import lru_cache
 from typing import Iterable
 from groq import Groq
 
+def stream_chat(messages: list[dict], context: str | None = None, memory: str | None = None) -> Iterable[str]:
+    system_prompt = SYSTEM_PROMPT
 
+    if memory:
+        system_prompt += (
+            f"\n\nUSER MEMORY (use naturally):\n{memory}\n"
+            "Answer FIRST. Then optionally ONE personalized touch. "
+        )
+    if context:
+        system_prompt += (
+            f"\n\nDOCUMENT CONTEXT (answer ONLY from this document, ignore outside knowledge):\n{context}"
+        )
+
+    for attempt in range(3):
+        try:
+            stream = _client().chat.completions.create(
+                model=SMART_MODEL,
+                messages=[{"role": "system", "content": system_prompt}] + messages,
+                temperature=0.7,
+                max_tokens=800,
+                stream=True,
+            )
+            full = ""
+            for chunk in stream:
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    full += delta
+            clean = _strip_thinking(full)
+            yield clean
+            return
+        except Exception as e:
+            if "rate_limit" in str(e) and attempt < 2:
+                time.sleep(2)
+                continue
+            yield "Rate limit hit, please wait a moment and try again! 😊"
+            return
+        
 def _strip_thinking(text: str) -> str:
     # Step 1 — Remove <think>...</think> blocks
     text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
