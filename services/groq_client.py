@@ -6,81 +6,16 @@ from functools import lru_cache
 from typing import Iterable
 from groq import Groq
 
-def stream_chat(messages: list[dict], context: str | None = None, memory: str | None = None) -> Iterable[str]:
-    system_prompt = SYSTEM_PROMPT
 
-    if memory:
-        system_prompt += (
-            f"\n\nUSER MEMORY (use naturally):\n{memory}\n"
-            "Answer FIRST. Then optionally ONE personalized touch. "
-        )
-    if context:
-        system_prompt += (
-            f"\n\nDOCUMENT CONTEXT (answer ONLY from this document, ignore outside knowledge):\n{context}"
-        )
-
-    for attempt in range(3):
-        try:
-            stream = _client().chat.completions.create(
-                model=SMART_MODEL,
-                messages=[{"role": "system", "content": system_prompt}] + messages,
-                temperature=0.7,
-                max_tokens=800,
-                stream=True,
-            )
-            full = ""
-            for chunk in stream:
-                if not chunk.choices:
-                    continue
-                delta = chunk.choices[0].delta.content
-                if delta:
-                    full += delta
-            clean = _strip_thinking(full)
-            yield clean
-            return
-        except Exception as e:
-            if "rate_limit" in str(e) and attempt < 2:
-                time.sleep(2)
-                continue
-            yield "Rate limit hit, please wait a moment and try again! 😊"
-            return
-        
 def _strip_thinking(text: str) -> str:
-    # Step 1 — Remove <think>...</think> blocks
+    # Step 1 — Remove <think>...</think> blocks only
     text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL)
-    
-    # Step 2 — Remove reasoning lines by starter words
-    reasoning_starters = (
-    "Okay,", "First,", "Looking at", "I need to",
-    "So the correct", "According to", "Since the reply", "The user is asking",
-    "This means", "Wait,", "Actually,", "The NAME", "Now,", "So,",
-    "In this", "To answer", "When the",
-    "The user", "They", "I should", "I'll", "I will", "I think",
-    "The message", "The question", "The response", "The reply",
-    "Alright,", "Right,", "Hmm,", "Well,", "OK,",
-    )
-    lines = text.strip().split('\n')
-    last_reasoning_index = -1
-    for i, line in enumerate(lines):
-        if any(line.strip().startswith(x) for x in reasoning_starters):
-            last_reasoning_index = i
-    if last_reasoning_index >= 0:
-        remaining = lines[last_reasoning_index + 1:]
-        while remaining and not remaining[0].strip():
-            remaining.pop(0)
-        if remaining:
-            return '\n'.join(remaining).strip()
-    
-    # Step 3 — Aggressive fallback: take last paragraph after \n\n
-    parts = text.strip().split('\n\n')
-    if len(parts) > 1:
-        return parts[-1].strip()
-    
     return text.strip()
 
 
 SYSTEM_PROMPT = (
     "CRITICAL: Do NOT show your thinking process. Do NOT use <think> tags. Reply DIRECTLY with the answer only. "
+    "NEVER start with reasoning phrases. Go straight to the answer. "
     # ══════════════════════════════════════════════
     # RULE #1 — LANGUAGE LAW — ABSOLUTE HIGHEST PRIORITY
     # ══════════════════════════════════════════════
@@ -163,6 +98,7 @@ SYSTEM_PROMPT = (
     "RESPONSE STYLE RULES: "
     "Casual message → MAX 2 lines. Short and sweet. "
     "Simple factual question → 3-4 lines max. "
+    "Document summary/explain → give FULL detailed answer, do not cut short. "
     "Use bullet points ONLY when user explicitly asks for steps, list, or tutorial. "
     "When giving tips or lists → use **bold** for title of each point. "
     "NEVER write an essay for a simple question. "
@@ -214,6 +150,7 @@ SYSTEM_PROMPT = (
     # ══════════════════════════════════════════════
     "DOCUMENT RULES: "
     "When document context is provided → answer ONLY from document. "
+    "Give COMPLETE and DETAILED answer from document — never cut short. "
     "Do not use outside knowledge when document context exists. "
     "If answer not in document → say I could not find that in the document. "
 
@@ -311,17 +248,18 @@ def chat(messages: list[dict], context: str | None = None, memory: str | None = 
             f"\n\nCRITICAL DOCUMENT INSTRUCTION — HIGHEST PRIORITY: "
             f"The user has uploaded a document. You MUST answer ONLY from the document content below. "
             f"IGNORE your own knowledge completely. Do NOT use memory. Do NOT make up anything. "
+            f"Give COMPLETE and DETAILED answer. Do NOT cut short. "
             f"If the answer is in the document, give it. If not found, say: I could not find that in the document. "
             f"\n\nDOCUMENT CONTENT:\n{context}"
         )
 
+    max_tok = 1500 if context else 800
     full = [{"role": "system", "content": system_prompt}] + messages
     resp = _client().chat.completions.create(
         model=SMART_MODEL,
         messages=full,
         temperature=0.7,
-        max_tokens=800,
-        
+        max_tokens=max_tok,
     )
     return _strip_thinking(resp.choices[0].message.content or "")
 
@@ -336,23 +274,38 @@ def stream_chat(messages: list[dict], context: str | None = None, memory: str | 
         )
     if context:
         system_prompt += (
-            f"\n\nDOCUMENT CONTEXT (answer ONLY from this document, ignore outside knowledge):\n{context}"
+            f"\n\nCRITICAL DOCUMENT INSTRUCTION — HIGHEST PRIORITY: "
+            f"The user has uploaded a document. You MUST answer ONLY from the document content below. "
+            f"IGNORE your own knowledge completely. Do NOT make up anything. "
+            f"Give COMPLETE and DETAILED answer. Do NOT cut short. "
+            f"If the answer is in the document, give it. If not found, say: I could not find that in the document. "
+            f"\n\nDOCUMENT CONTENT:\n{context}"
         )
 
-    stream = _client().chat.completions.create(
-        model=SMART_MODEL,
-        messages=[{"role": "system", "content": system_prompt}] + messages,
-        temperature=0.7,
-        max_tokens=600,
-        stream=True,
-        
-    )
-    full = ""
-    for chunk in stream:
-        if not chunk.choices:
-            continue
-        delta = chunk.choices[0].delta.content
-        if delta:
-            full += delta
-    clean = _strip_thinking(full)
-    yield clean
+    max_tok = 1500 if context else 800
+
+    for attempt in range(3):
+        try:
+            stream = _client().chat.completions.create(
+                model=SMART_MODEL,
+                messages=[{"role": "system", "content": system_prompt}] + messages,
+                temperature=0.7,
+                max_tokens=max_tok,
+                stream=True,
+            )
+            full = ""
+            for chunk in stream:
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    full += delta
+            clean = _strip_thinking(full)
+            yield clean
+            return
+        except Exception as e:
+            if "rate_limit" in str(e) and attempt < 2:
+                time.sleep(2)
+                continue
+            yield "Rate limit hit, please wait a moment and try again! 😊"
+            return
