@@ -103,25 +103,21 @@ def _detect_language(text: str) -> str:
 
     # Strong Gujarati signals — if any of these found → definitely Gujarati
     strong_gujarati = {
-    # Original
     "kem", "cho", "chhe", "nathi", "tamaru", "tamaro",
     "tamari", "aavjo", "olakho", "ghanu", "thodu", "saru",
-    "maja", "bau", "javu", "avu", "tame", "mane",
-    # Added common Gujarati words
-    "su", "shu", "che", "hatu", "hati", "hata",
+    "maja", "bau", "javu", "avu", "tame",
+    "shu", "hatu", "hati", "hata",
     "karo", "kari", "karu", "karjo", "karva",
-    "nai","pan", "ane", "pachi",
-    "kyare", "kyathi", "kyan", "kem", "kevu", "kevi",
+    "nai", "pan", "pachi",
+    "kyare", "kyathi", "kyan", "kevu", "kevi",
     "maro", "mari", "mara", "taro", "tari", "tara",
-    "aapo", "avjo", "jaav", "jaavo",
-    "ben",
-    "game", "gamtu", "gamti", "nathi gamtu",
+    "avjo", "jaav", "jaavo", "ben",
+    "gamtu", "gamti",
     "aayu", "gayu", "gai", "avyu", "avvi",
-    "boljo", "kaho", "sambhlo", "juo",
-    "saras", "mast", "majama", "mazama",
-    "tamne", "tane", "mane", "ane", "eni", "ena",
-    "hu", "hun", "ame", "apa", "tame",
-    "shu", "che", "hoy", "hoi",
+    "boljo", "sambhlo", "juo",
+    "saras", "majama", "mazama",
+    "tamne", "tane", "eni", "ena", "ame",
+    "hoy", "hoi",
     }
 
     # Hindi wins first — most important
@@ -193,7 +189,7 @@ def _load_context(sb, user_id: str, user_msg: str, document_id: str | None) -> s
         query = sb.table("document_chunks").select("content").eq("user_id", user_id)
         if document_id:
             query = query.eq("document_id", document_id)
-        chunks = query.limit(200).execute()
+        chunks = query.limit(500).execute()
         chunk_contents = [c["content"] for c in (chunks.data or [])]
 
         if not document_id:
@@ -219,11 +215,11 @@ def _load_context(sb, user_id: str, user_msg: str, document_id: str | None) -> s
 
         if document_id and chunk_contents:
             if any(kw in user_msg.lower() for kw in summarize_keywords) or len(user_msg.split()) <= 4:
-                relevant = chunk_contents[:4]
+                relevant = chunk_contents[:10]
             else:
-                relevant = top_k(user_msg, chunk_contents, k=4)
+                relevant = top_k(user_msg, chunk_contents, k=10)
         else:
-            relevant = top_k(user_msg, chunk_contents, k=4)
+            relevant = top_k(user_msg, chunk_contents, k=10)
 
         if relevant:
             return "\n---\n".join(relevant)
