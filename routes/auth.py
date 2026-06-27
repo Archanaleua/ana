@@ -32,7 +32,6 @@ def signup():
         return jsonify(error="email and password required"), 400
 
     try:
-        # ✅ FIX: pass full_name in metadata
         res = get_supabase().auth.sign_up({
             "email": email,
             "password": password,
@@ -47,7 +46,6 @@ def signup():
             session["email"] = res.user.email
             session["full_name"] = full_name
 
-            # Save profile to profiles table
             try:
                 from services.supabase_client import get_supabase_admin
                 get_supabase_admin().table("profiles").upsert({
@@ -77,7 +75,6 @@ def signin():
         session["email"] = res.user.email
         session["access_token"] = res.session.access_token
 
-        # Fetch full_name from profiles
         try:
             from services.supabase_client import get_supabase_admin
             profile = get_supabase_admin().table("profiles").select("full_name").eq("id", res.user.id).single().execute()
@@ -124,7 +121,7 @@ def forgot_password_page():
 
 
 @auth_bp.post("/forgot-password")
-def forgot_password():
+def forgot_password_post():
     data = request.get_json(force=True)
     email = data.get("email")
     if not email:
@@ -132,7 +129,7 @@ def forgot_password():
     try:
         get_supabase().auth.reset_password_email(
             email,
-            options={"redirect_to": "http://localhost:5000/auth/reset-password"}
+            options={"redirect_to": "https://ana-vkl4.onrender.com/auth/reset-password"}
         )
         return jsonify(ok=True)
     except Exception as e:
@@ -144,17 +141,17 @@ def reset_password_page():
     return render_template("reset_password.html")
 
 
-@auth_bp.post("/forgot-password")
-def forgot_password():
+@auth_bp.post("/reset-password")
+def reset_password():
     data = request.get_json(force=True)
-    email = data.get("email")
-    if not email:
-        return jsonify(error="Email required"), 400
+    new_password = data.get("password")
+    access_token = data.get("access_token")
+    if not new_password or not access_token:
+        return jsonify(error="Missing password or token"), 400
     try:
-        get_supabase().auth.reset_password_email(
-            email,
-            options={"redirect_to": "https://ana-vkl4.onrender.com/auth/reset-password"}
-        )
+        client = get_supabase()
+        client.auth.set_session(access_token, data.get("refresh_token", ""))
+        client.auth.update_user({"password": new_password})
         return jsonify(ok=True)
     except Exception as e:
         return jsonify(error=str(e)), 400
