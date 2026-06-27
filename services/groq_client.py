@@ -293,7 +293,6 @@ def stream_chat(messages: list[dict], context: str | None = None, memory: str | 
         temperature=0.7,
         max_tokens=600,
         stream=True,
-        reasoning_effort="none",
     )
     full = ""
     for chunk in stream:
