@@ -135,6 +135,23 @@ def _detect_language(text: str) -> str:
         return "Hindi"
     if gujarati_score > hindi_score:
         return "Gujarati"
+    
+    # ── STEP 2.5: Common English check before AI ──
+    common_english = {
+        "the", "is", "are", "was", "were", "what", "how", "why",
+        "when", "where", "who", "which", "this", "that", "these",
+        "those", "my", "your", "his", "her", "we", "they", "it",
+        "can", "will", "do", "does", "did", "have", "has", "had",
+        "summarize", "explain", "tell", "show", "give", "make",
+        "help", "please", "thanks", "hello", "hi", "hey",
+        "about", "from", "with", "into", "through", "and", "or",
+        "but", "not", "all", "any", "some", "more", "also",
+        "just", "like", "get", "use", "see", "know", "think",
+        "want", "need", "good", "great", "best", "new", "first",
+        "uploaded", "document", "file", "pdf", "chat", "message",
+    }
+    if words & common_english:
+        return "English"
 
     # ── STEP 3: AI detection for all other Roman script languages ──
     # French, Spanish, German, Italian, Portuguese, Dutch, Turkish,
