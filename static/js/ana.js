@@ -14,18 +14,21 @@
   let conversationId = null;
   let attachedDocumentId = null;
   let attachedDocumentName = null;
+  let activeAbortController = null;
+  let activeUserRow = null;
 
   const ICON_COPY = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>`;
   const ICON_CHECK = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>`;
   const ICON_EDIT = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
   const ICON_SHARE = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> Share`;
 
-  const addMsg = (role, content, docName = null) => {
+  const addMsg = (role, content, docName = null, messageId = null) => {
     const welcome = messagesEl.querySelector(".welcome");
     if (welcome) welcome.remove();
 
     const row = document.createElement("div");
     row.className = `msg-row msg-row--${role === "user" ? "user" : "bot"}`;
+    if (messageId) row.dataset.messageId = messageId;
 
     if (role !== "user") {
       const logo = document.createElement("div");
@@ -48,7 +51,6 @@
 
     row.appendChild(bubble);
 
-    // Actions
     const actions = document.createElement("div");
     if (role === "user") {
       actions.className = "msg-actions msg-actions--user";
@@ -66,10 +68,7 @@
       editBtn.title = "Edit";
       editBtn.innerHTML = ICON_EDIT;
       editBtn.addEventListener("click", () => {
-        input.value = content;
-        input.focus();
-        input.style.height = "auto";
-        input.style.height = Math.min(input.scrollHeight, 200) + "px";
+        startEdit(row, content);
       });
       actions.appendChild(copyBtn);
       actions.appendChild(editBtn);
@@ -104,7 +103,110 @@
     row.appendChild(actions);
     messagesEl.appendChild(row);
     messagesEl.scrollTop = messagesEl.scrollHeight;
-    return bubble;
+    return { bubble, row };
+  };
+
+  // ── EDIT MODE — turns a user bubble into an inline editable textarea ──
+  const startEdit = (row, currentText) => {
+    const bubble = row.querySelector(".msg");
+    const messageId = row.dataset.messageId;
+    const isCurrentlyGenerating = (row === activeUserRow);
+
+    if (!messageId && !isCurrentlyGenerating) {
+      alert("This message can't be edited yet — please wait for it to finish saving.");
+      return;
+    }
+
+    const originalHTML = bubble.innerHTML;
+
+    const textarea = document.createElement("textarea");
+    textarea.value = currentText;
+    textarea.style.cssText = "width:100%;min-height:60px;background:transparent;color:inherit;border:1px solid var(--border);border-radius:8px;padding:8px;font-family:inherit;font-size:inherit;resize:vertical;";
+    bubble.innerHTML = "";
+    bubble.appendChild(textarea);
+
+    const btnRow = document.createElement("div");
+    btnRow.style.cssText = "display:flex;gap:8px;margin-top:8px;";
+
+    const saveBtn = document.createElement("button");
+    saveBtn.textContent = "Save & Submit";
+    saveBtn.className = "btn btn--primary";
+    saveBtn.style.cssText = "padding:6px 14px;font-size:0.85rem;";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.textContent = "Cancel";
+    cancelBtn.className = "btn btn--ghost";
+    cancelBtn.style.cssText = "padding:6px 14px;font-size:0.85rem;";
+    cancelBtn.addEventListener("click", () => {
+      bubble.innerHTML = originalHTML;
+    });
+
+    saveBtn.addEventListener("click", () => {
+      const newText = textarea.value.trim();
+      if (!newText) return;
+
+      if (isCurrentlyGenerating) {
+        // Cancel the in-flight response, then send this as a fresh message
+        if (activeAbortController) {
+          activeAbortController.abort();
+          activeAbortController = null;
+        }
+        const nextEl = row.nextElementSibling;
+        if (nextEl) nextEl.remove(); // remove the unfinished bot bubble
+        row.remove();
+        sendMessage(newText, null, null);
+      } else {
+        submitEdit(row, messageId, newText);
+      }
+    });
+
+    btnRow.appendChild(saveBtn);
+    btnRow.appendChild(cancelBtn);
+    bubble.appendChild(btnRow);
+    textarea.focus();
+  };
+
+  const submitEdit = async (editedRow, messageId, newText) => {
+    // Remove the edited message AND everything visually below it
+    let node = editedRow;
+    const toRemove = [];
+    while (node) {
+      toRemove.push(node);
+      node = node.nextElementSibling;
+    }
+    toRemove.forEach((n) => n.remove());
+
+    const newUserRow = addMsg("user", newText).row;
+    if (shareBtnNav) shareBtnNav.style.display = "flex";
+
+    const { update, finish, row } = addStreamingMsg();
+
+    activeUserRow = newUserRow;
+    const controller = new AbortController();
+    activeAbortController = controller;
+
+    try {
+      const res = await fetch("/chat/edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          conversation_id: conversationId,
+          message_id: messageId,
+          message: newText,
+          document_id: null,
+        }),
+        signal: controller.signal,
+      });
+      await consumeStream(res, update, finish, row, newUserRow);
+    } catch (err) {
+      if (err.name === "AbortError") return;
+      row.remove();
+      addMsg("bot", "⚠️ Network error: " + err.message);
+    } finally {
+      activeAbortController = null;
+      activeUserRow = null;
+    }
   };
 
   // ── STREAMING BOT MESSAGE ──
@@ -128,26 +230,19 @@
     let fullText = "";
     let started = false;
 
-  const update = (token) => {
-    if (!started) {
-      bubble.innerHTML = "";
-      started = true;
-  }
-  fullText += token;
-  bubble.innerHTML = marked.parse(fullText);
-  messagesEl.scrollTop = messagesEl.scrollHeight;
-};
-
-    const finalRender = () => {
-      // Render markdown only when done
+    const update = (token) => {
+      if (!started) {
+        bubble.innerHTML = "";
+        started = true;
+      }
+      fullText += token;
       bubble.innerHTML = marked.parse(fullText);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
     };
 
     const finish = () => {
       bubble.innerHTML = marked.parse(fullText);
-      // Add copy button after streaming done
       const actions = document.createElement("div");
-
       actions.className = "msg-actions msg-actions--bot";
       const copyBtn = document.createElement("button");
       copyBtn.className = "msg-action-btn";
@@ -178,14 +273,54 @@
     return { update, finish, row };
   };
 
-  composer.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const text = input.value.trim();
-    if (!text) return;
+  // ── SHARED SSE STREAM CONSUMER — used by both /send and /edit ──
+  const consumeStream = async (res, update, finish, row, userMsgRow = null) => {
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
 
-    const docId = attachedDocumentId;
-    const docName = attachedDocumentName;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        try {
+          const parsed = JSON.parse(line.slice(6));
+          if (parsed.token) {
+            update(parsed.token);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          }
+          if (parsed.done) {
+            conversationId = parsed.conversation_id || conversationId;
+            if (userMsgRow && parsed.user_message_id) {
+              userMsgRow.dataset.messageId = parsed.user_message_id;
+            }
+            finish();
+            if (parsed.grounded) {
+              const tag = document.createElement("div");
+              tag.className = "muted";
+              tag.style.cssText = "font-size:0.75rem;width:100%;margin:-10px auto 0;padding:0 80px;";
+              tag.textContent = "✦ grounded in your documents";
+              messagesEl.appendChild(tag);
+            }
+            loadHistory(true);
+          }
+          if (parsed.error) {
+            row.remove();
+            addMsg("bot", "⚠️ " + parsed.error);
+          }
+        } catch {}
+      }
+    }
+  };
+
+  // ── SEND — used by both the composer submit AND edit-during-generation ──
+  const sendMessage = async (text, docId, docName) => {
     input.value = "";
     input.style.height = "auto";
     attachedDocumentId = null;
@@ -193,10 +328,14 @@
     const fp = document.getElementById("filePreview");
     if (fp) fp.style.display = "none";
 
-    addMsg("user", text, docName);
+    const userMsgRow = addMsg("user", text, docName).row;
+    activeUserRow = userMsgRow;
     if (shareBtnNav) shareBtnNav.style.display = "flex";
 
     const { update, finish, row } = addStreamingMsg();
+
+    const controller = new AbortController();
+    activeAbortController = controller;
 
     try {
       const res = await fetch("/chat/send", {
@@ -204,51 +343,24 @@
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify({ message: text, conversation_id: conversationId, document_id: docId }),
+        signal: controller.signal,
       });
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop();
-
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          try {
-            const parsed = JSON.parse(line.slice(6));
-            if (parsed.token) {
-              update(parsed.token);
-              messagesEl.scrollTop = messagesEl.scrollHeight;
-            }
-            if (parsed.done) {
-              conversationId = parsed.conversation_id || conversationId;
-              finish();
-              if (parsed.grounded) {
-                const tag = document.createElement("div");
-                tag.className = "muted";
-                tag.style.cssText = "font-size:0.75rem;width:100%;margin:-10px auto 0;padding:0 80px;";
-                tag.textContent = "✦ grounded in your documents";
-                messagesEl.appendChild(tag);
-              }
-              loadHistory(true);
-            }
-            if (parsed.error) {
-              row.remove();
-              addMsg("bot", "⚠️ " + parsed.error);
-            }
-          } catch {}
-        }
-      }
+      await consumeStream(res, update, finish, row, userMsgRow);
     } catch (err) {
+      if (err.name === "AbortError") return;
       row.remove();
       addMsg("bot", "⚠️ Network error: " + err.message);
+    } finally {
+      activeAbortController = null;
+      activeUserRow = null;
     }
+  };
+
+  composer.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    sendMessage(text, attachedDocumentId, attachedDocumentName);
   });
 
   input?.addEventListener("input", () => {
@@ -307,7 +419,7 @@
         messagesEl.innerHTML = "";
         const res = await fetch(`/chat/messages/${c.id}`, { credentials: "same-origin" });
         const { messages = [] } = await res.json();
-        messages.forEach((m) => addMsg(m.role, m.content));
+        messages.forEach((m) => addMsg(m.role, m.content, null, m.id));
       });
 
       const delBtn = document.createElement("button");

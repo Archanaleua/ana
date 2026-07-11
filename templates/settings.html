@@ -33,15 +33,7 @@
 
     <hr style="border:none; border-top:1px solid var(--border); margin:24px 0;" />
 
-    <!-- Clear Memory -->
-    <div class="settings-section">
-    <h3 style="margin-bottom:8px;">🧠 Memory</h3>
-    <p class="muted" style="font-size:0.9rem; margin-bottom:14px;">ANA remembers facts about you. You can clear this anytime.</p>
-    <button class="btn btn--ghost" onclick="clearMemory()" style="border-color:orange; color:orange;">🗑️ Clear My Memory</button>
-    <div id="mem-msg" style="margin-top:10px; font-size:0.9rem;"></div>
-    </div>
-
-    <hr style="border:none; border-top:1px solid var(--border); margin:24px 0;" />
+    
 
     <!-- Danger Zone -->
     <div class="settings-section">
@@ -90,14 +82,7 @@ if (data.ok) { msg.style.color="var(--accent)"; msg.textContent="✅ Password up
 else { msg.style.color="red"; msg.textContent="❌ " + (data.error || "Failed"); }
 }
 
-async function clearMemory() {
-if (!confirm("Clear all memory? ANA will forget everything about you.")) return;
-const res = await fetch("/api/clear-memory", { method: "POST", credentials: "same-origin" });
-const data = await res.json();
-const msg = document.getElementById("mem-msg");
-if (data.ok) { msg.style.color="var(--accent)"; msg.textContent="✅ Memory cleared!"; }
-else { msg.style.color="red"; msg.textContent="❌ Failed"; }
-}
+
 
 async function deleteAccount() {
 if (!confirm("Delete your account? This cannot be undone!")) return;

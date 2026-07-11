@@ -2,61 +2,10 @@
 from flask import Blueprint, request, jsonify, session, render_template, Response, stream_with_context
 from services.groq_client import chat as groq_chat, stream_chat
 from services.supabase_client import get_supabase_admin
-from services.rag import top_k
 from services.auth_utils import login_required_api
 import json
 
 chat_bp = Blueprint("chat", __name__)
-
-
-def _extract_memory(message: str) -> dict:
-    import json
-    from services.groq_client import _client
-    try:
-        prompt = f"""Extract personal facts from this message. Return ONLY a JSON object. If no facts found return {{}}.
-
-CRITICAL RULES:
-- "tamara" is a Gujarati word meaning "your/yours" — NEVER treat it as a name
-- "tame" is Gujarati for "you" — NEVER treat it as a name
-- "mane" is Gujarati for "me/I" — NEVER treat it as a name
-- "kem" is Gujarati for "how" — NEVER treat it as a name
-- Only extract a "name" if someone clearly introduces themselves e.g. "my name is X" or "I am X"
-- Do NOT extract names from questions like "tamara naam su che"
-- Store ONLY the first name in "name" key in English
-- If a name is found, also provide correct transliterations in these keys:
-  "name" → English/Latin version
-  "name_hindi" → correct Hindi Devanagari script
-  "name_gujarati" → correct Gujarati script
-  "name_arabic" → correct Arabic script
-  "name_russian" → correct Cyrillic script
-  "name_bengali" → correct Bengali script
-  "name_tamil" → correct Tamil script
-  "name_telugu" → correct Telugu script
-  "name_kannada" → correct Kannada script
-  "name_malayalam" → correct Malayalam script
-  "name_punjabi" → correct Punjabi Gurmukhi script
-  "name_japanese" → correct Japanese Katakana
-  "name_chinese" → correct Chinese script
-  "name_korean" → correct Korean Hangul
-- Use your knowledge to give the most accurate transliteration for each script
-- If not a name introduction, just return other facts normally without name keys
-
-Message: "{message}"
-Return only valid JSON, nothing else."""
-
-        resp = _client().chat.completions.create(
-            model="qwen/qwen3-32b",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0,
-            max_tokens=400,
-            
-        )
-        text = resp.choices[0].message.content.strip()
-        text = text.replace("```json", "").replace("```", "").strip()
-        facts = json.loads(text)
-        return facts if isinstance(facts, dict) else {}
-    except Exception:
-        return {}
 
 
 def _require_user():
@@ -66,7 +15,6 @@ def _require_user():
 def _detect_language(text: str) -> str:
     import re
 
-    # ── STEP 1: Unicode script detection — instant, 100% accurate ──
     if re.search(r'[\u0A80-\u0AFF]', text): return "Gujarati"
     if re.search(r'[\u0900-\u097F]', text): return "Hindi"
     if re.search(r'[\u0600-\u06FF]', text): return "Arabic"
@@ -85,58 +33,49 @@ def _detect_language(text: str) -> str:
     if re.search(r'[\u0E00-\u0E7F]', text): return "Thai"
     if re.search(r'[\u1200-\u137F]', text): return "Amharic"
 
-    # ── STEP 2: Roman script — check Gujarati & Hindi FIRST before AI ──
     words = set(text.lower().split())
 
-    # Strong Hindi signals — if any of these found → definitely Hindi
     strong_hindi = {
-    "yaar", "kya", "bhai", "mujhe", "nahi", "mera", "tera",
-    "haan", "chahiye", "bahut", "zyada", "abhi", "lekin",
-    "raha", "rahi", "tum", "hota", "batao", "kaise", "kaisa",
-    "phir", "woh", "yeh", "aur", "main", "dost", "ghar",
-    # Added
-    "kese", "kese ho", "kaisa", "theek", "bilkul", "shukriya",
-    "dhanyawad", "namaste", "matlab", "samjha", "pata",
-    "tha", "thi", "hain", "mere", "teri",
-    "uska", "unka", "kyun", "kab", "kahan", "kitna", "bohot",
+        "yaar", "kya", "bhai", "mujhe", "nahi", "mera", "tera",
+        "haan", "chahiye", "bahut", "zyada", "abhi", "lekin",
+        "raha", "rahi", "tum", "hota", "batao", "kaise", "kaisa",
+        "phir", "woh", "yeh", "aur", "main", "dost", "ghar",
+        "kese", "kese ho", "kaisa", "theek", "bilkul", "shukriya",
+        "dhanyawad", "namaste", "samjha", "pata",
+        "tha", "thi", "hain", "mere", "teri",
+        "uska", "unka", "kyun", "kab", "kahan", "kitna", "bohot",
     }
 
-    # Strong Gujarati signals — if any of these found → definitely Gujarati
     strong_gujarati = {
-    "kem", "cho", "chhe", "nathi", "tamaru", "tamaro",
-    "tamari", "aavjo", "olakho", "ghanu", "thodu", "saru",
-    "maja", "bau", "javu", "avu", "tame",
-    "shu", "hatu", "hati", "hata",
-    "karo", "kari", "karu", "karjo", "karva",
-    "nai", "pan", "pachi",
-    "kyare", "kyathi", "kyan", "kevu", "kevi",
-    "maro", "mari", "mara", "taro", "tari", "tara",
-    "avjo", "jaav", "jaavo", "ben",
-    "gamtu", "gamti",
-    "aayu", "gayu", "gai", "avyu", "avvi",
-    "boljo", "sambhlo", "juo",
-    "saras", "majama", "mazama",
-    "tamne", "tane", "eni", "ena", "ame",
-    "hoy", "hoi",
+        "kem", "cho", "chhe", "nathi", "tamaru", "tamaro",
+        "tamari", "aavjo", "olakho", "ghanu", "thodu", "saru",
+        "maja", "bau", "javu", "avu", "tame",
+        "shu", "su", "hatu", "hati", "hata",
+        "karo", "kari", "karu", "karjo", "karva",
+        "nai", "pan", "pachi",
+        "kyare", "kyathi", "kyan", "kevu", "kevi",
+        "maro", "mari", "mara", "taro", "tari", "tara",
+        "avjo", "jaav", "jaavo", "ben",
+        "gamtu", "gamti",
+        "aayu", "gayu", "gai", "avyu", "avvi",
+        "boljo", "sambhlo", "juo",
+        "saras", "majama", "mazama",
+        "tamne", "tane", "eni", "ena", "ame",
+        "hoy", "hoi",
     }
 
-    # Hindi wins first — most important
     if words & strong_hindi and not words & strong_gujarati:
         return "Hindi"
-
-    # Gujarati second
     if words & strong_gujarati and not words & strong_hindi:
         return "Gujarati"
 
-    # If both found — score based decision
     hindi_score = len(words & strong_hindi)
     gujarati_score = len(words & strong_gujarati)
     if hindi_score > gujarati_score:
         return "Hindi"
     if gujarati_score > hindi_score:
         return "Gujarati"
-    
-    # ── STEP 2.5: Common English check before AI ──
+
     common_english = {
         "the", "is", "are", "was", "were", "what", "how", "why",
         "when", "where", "who", "which", "this", "that", "these",
@@ -149,22 +88,37 @@ def _detect_language(text: str) -> str:
         "just", "like", "get", "use", "see", "know", "think",
         "want", "need", "good", "great", "best", "new", "first",
         "uploaded", "document", "file", "pdf", "chat", "message",
+        "find", "search", "look", "check", "list", "count",
+        "many", "much", "between", "days", "today", "yesterday",
+        "date", "year", "month", "left", "remaining", "balance",
+        "employee", "employees", "attendance", "leave", "leaves",
+        "present", "absent", "department", "city", "salary",
+        "on", "in", "at", "for", "of", "to", "by", "an", "a",
+        "name", "id", "info", "details", "record", "records",
+        "delete", "add", "update", "modify", "change",
     }
     if words & common_english:
         return "English"
 
-    # ── STEP 3: AI detection for all other Roman script languages ──
-    # French, Spanish, German, Italian, Portuguese, Dutch, Turkish,
-    # Indonesian, Vietnamese, Malay, Swahili, and all others
+    import difflib
+    for w in words:
+        if len(w) < 3:
+            continue
+        close_matches = difflib.get_close_matches(w, common_english, n=1, cutoff=0.75)
+        if close_matches:
+            return "English"
+
     from services.groq_client import _client
     try:
         resp = _client().chat.completions.create(
-            model="qwen/qwen3-32b",
+            model="qwen/qwen3.6-27b",
             messages=[{
                 "role": "user",
                 "content": (
                     f"Detect the language of this text. "
                     f"Reply with ONLY the language name in English, nothing else. "
+                    f"If you are not confident, or the text could be a name, ID, or short command, "
+                    f"reply 'English'. "
                     f"Examples: English, French, Spanish, German, Italian, "
                     f"Portuguese, Dutch, Turkish, Indonesian, Vietnamese, "
                     f"Malay, Swahili, Polish, Czech, Romanian, Hungarian, "
@@ -174,32 +128,116 @@ def _detect_language(text: str) -> str:
             }],
             temperature=0,
             max_tokens=10,
-            
         )
         lang = resp.choices[0].message.content.strip()
-        # Clean any extra text
         lang = lang.split('\n')[0].split('.')[0].strip()
         return lang if lang else "English"
     except Exception:
         return "English"
 
 
-def _load_memory(sb, user_id: str) -> str | None:
-    try:
-        mem_rows = (
-            sb.table("memory")
-            .select("key,value")
-            .eq("user_id", user_id)
-            .limit(20)
-            .execute()
-        )
-        if mem_rows.data:
-            facts = "\n".join([f"- {m['key']}: {m['value']}" for m in mem_rows.data])
-            return f"Facts about this user:\n{facts}"
-    except Exception as e:
-        pass
-    return None  # ← returns None when memory cleared = ANA doesn't know name! ✅
+def _resolve_language_for_followup_reply(history: list[dict], user_msg: str) -> str | None:
+    """
+    Handles short replies that answer a PREVIOUS assistant question, where the
+    reply itself (a bare city name, a bare person's name, etc.) is too short
+    and ambiguous to reliably language-detect on its own — and where a wrong
+    guess would silently derail an in-progress HR lookup or identity flow.
 
+    This function ONLY affects which [LANG:XX] tag gets attached to the
+    message. It never touches employee data, never calls any tool, and never
+    changes what the message text actually says — it purely fixes a language-
+    detection edge case for two specific, narrow situations:
+
+    1. EMPLOYEE DISAMBIGUATION FOLLOW-UP
+       Assistant just asked "which one did you mean?" after finding multiple
+       employees with the same name. The user's short reply (a city,
+       department, or "the first one") is resolving THAT ambiguity — it is
+       not a language switch. We reuse the language of the ORIGINAL question
+       that started this disambiguation, so the whole exchange stays
+       consistent in whatever language the user was actually using.
+
+    2. NAME REQUEST FOLLOW-UP
+       Assistant just asked "what should I call you?" (e.g. after 'who am I'
+       with no name on file). The user's reply is just their name — a bare
+       name is unreliable to detect (can get misread as an Indian language
+       purely because it sounds like one). Default this case to English,
+       since it's identity/UI text, not an HR data query.
+
+    Returns a language string if either case applies, else None — meaning
+    the caller should fall back to normal _detect_language() as usual.
+    """
+    if not history or len(user_msg.split()) > 4:
+        return None
+
+    last = history[-1]
+    if last.get("role") != "assistant":
+        return None
+
+    last_content = last.get("content", "").lower()
+
+    # Case 1 — employee disambiguation follow-up
+    disambiguation_markers = ["which one did you mean", "did you mean", "clarify"]
+    if any(p in last_content for p in disambiguation_markers):
+        for msg in reversed(history[:-1]):
+            if msg.get("role") == "user":
+                return _detect_language(msg.get("content", ""))
+        return "English"  # no earlier user message found — safe fallback
+
+    # Case 2 — name request follow-up
+    name_request_markers = [
+        "what should i call you",
+        "what would you like me to call you",
+        "don't know your name",
+    ]
+    if any(p in last_content for p in name_request_markers):
+        return "English"
+
+    return None
+
+def _maybe_save_name_from_reply(sb, user_id: str, history: list[dict], user_msg: str) -> str | None:
+    """
+    If the assistant's last message asked the user for their name, treat this
+    reply as their name, save it PERMANENTLY to profiles.full_name in the
+    database (not just this session), and return it so the current turn can
+    use it immediately too — without needing another round trip.
+
+    This is a one-time save: once profiles.full_name is set, this function's
+    trigger condition (assistant just asked for a name) won't fire again in
+    future conversations, because the "who am I" flow will already have the
+    real name and never ask again.
+
+    Returns the name that was saved, or None if this isn't a name-reply case.
+    """
+    if not history or len(user_msg.split()) > 3:
+        return None
+
+    last = history[-1]
+    if last.get("role") != "assistant":
+        return None
+
+    name_request_markers = [
+        "what should i call you",
+        "what would you like me to call you",
+        "don't know your name",
+    ]
+    if not any(p in last.get("content", "").lower() for p in name_request_markers):
+        return None
+
+    name = user_msg.strip().title()
+    if not name or len(name) > 60:
+        return None
+
+    try:
+        sb.table("profiles").upsert({
+            "id": user_id,
+            "full_name": name,
+        }).execute()
+        session["full_name"] = name
+        print(f"[ANA] Saved name '{name}' permanently for user {user_id}")
+        return name
+    except Exception as e:
+        print(f"[ANA] Failed to save name: {e}")
+        return None
 
 def _load_context(sb, user_id: str, user_msg: str, document_id: str | None) -> str | None:
     try:
@@ -209,10 +247,7 @@ def _load_context(sb, user_id: str, user_msg: str, document_id: str | None) -> s
         chunks = query.limit(500).execute()
         chunk_contents = [c["content"] for c in (chunks.data or [])]
 
-        if not document_id:
-            return None
-
-        if not chunk_contents:
+        if not document_id or not chunk_contents:
             return None
 
         from services.rag import top_k
@@ -230,20 +265,59 @@ def _load_context(sb, user_id: str, user_msg: str, document_id: str | None) -> s
             "samjao", "samjav", "explain karo", "batao"
         ]
 
-        if document_id and chunk_contents:
-            if any(kw in user_msg.lower() for kw in summarize_keywords) or len(user_msg.split()) <= 4:
-                relevant = chunk_contents[:10]
-            else:
-                relevant = top_k(user_msg, chunk_contents, k=10)
+        if any(kw in user_msg.lower() for kw in summarize_keywords) or len(user_msg.split()) <= 4:
+            relevant = chunk_contents[:10]
         else:
             relevant = top_k(user_msg, chunk_contents, k=10)
 
         if relevant:
             return "\n---\n".join(relevant)
 
-    except Exception as e:
+    except Exception:
         pass
     return None
+
+
+def _stream_and_persist(sb, conversation_id, user_id, user_msg, document_id):
+    """Shared generator: builds context, streams the reply, saves both messages after."""
+    msgs = (
+        sb.table("messages")
+        .select("role,content")
+        .eq("conversation_id", conversation_id)
+        .order("created_at")
+        .limit(20)
+        .execute()
+    )
+    history = (msgs.data or [])[-6:]
+
+    saved_name = _maybe_save_name_from_reply(sb, user_id, history, user_msg)
+    user_name = saved_name or session.get("full_name") or None
+
+    context = _load_context(sb, user_id, user_msg, document_id)
+    lang = _resolve_language_for_followup_reply(history, user_msg) or _detect_language(user_msg)
+    user_msg_with_hint = f"[LANG:{lang}] {user_msg}"
+    messages = history + [{"role": "user", "content": user_msg_with_hint}]
+
+    full_reply = ""
+    try:
+        for token in stream_chat(messages, context=context, user_name=user_name):
+            full_reply += token
+            yield f"data: {json.dumps({'token': token})}\n\n"
+    except Exception as e:
+        yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        return
+
+    try:
+        result = sb.table("messages").insert([
+            {"conversation_id": conversation_id, "role": "user", "content": user_msg},
+            {"conversation_id": conversation_id, "role": "assistant", "content": full_reply},
+        ]).execute()
+
+        user_message_id = result.data[0]["id"] if result.data else None
+
+        yield f"data: {json.dumps({'done': True, 'conversation_id': conversation_id, 'grounded': bool(context), 'user_message_id': user_message_id})}\n\n"
+    except Exception as e:
+        yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
 
 @chat_bp.post("/send")
@@ -260,74 +334,54 @@ def send():
     user_id = _require_user()
     sb = get_supabase_admin()
 
-    # New conversation if needed
     if not conversation_id:
         row = sb.table("conversations").insert(
             {"user_id": user_id, "title": user_msg[:60]}
         ).execute()
         conversation_id = row.data[0]["id"]
 
-    # Load history
-    msgs = (
-        sb.table("messages")
-        .select("role,content")
-        .eq("conversation_id", conversation_id)
-        .order("created_at")
-        .limit(20)
-        .execute()
+    return Response(
+        stream_with_context(_stream_and_persist(sb, conversation_id, user_id, user_msg, document_id)),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+            "X-Content-Type-Options": "nosniff",
+            "Transfer-Encoding": "chunked",
+        }
     )
-    history = (msgs.data or [])[-6:]
 
-    memory_context = _load_memory(sb, user_id)
-    context = _load_context(sb, user_id, user_msg, document_id)
-    lang = _detect_language(user_msg)
-    user_msg_with_hint = f"[LANG:{lang}] {user_msg}"
-    messages = history + [{"role": "user", "content": user_msg_with_hint}]
 
-    # ── STREAMING RESPONSE ──
-    def generate():
-        full_reply = ""
-        try:
-            for token in stream_chat(messages, context=context, memory=memory_context):
-                full_reply += token
-                yield f"data: {json.dumps({'token': token})}\n\n"
-        except Exception as e:
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
-            return
+@chat_bp.post("/edit")
+@login_required_api
+def edit_message():
+    """Edit a past user message: delete it + everything after it, then regenerate."""
+    data = request.get_json(force=True)
+    conversation_id = data.get("conversation_id")
+    message_id = data.get("message_id")
+    new_text = (data.get("message") or "").strip()
+    document_id = data.get("document_id")
 
-        # Save to DB after streaming done
-        try:
-            try:
-                memory_facts = _extract_memory(user_msg)
-                for key, value in memory_facts.items():
-                    # Only save name if user explicitly introduced themselves
-                    if key.startswith("name"):
-                        # Check if message has clear name introduction
-                        intro_signals = [
-                            "my name is", "i am", "i'm", "mera naam", 
-                            "maru naam", "call me", "naam che"
-                        ]
-                        if not any(signal in user_msg.lower() for signal in intro_signals):
-                            continue  # skip saving name if not introduced
-                    sb.table("memory").upsert({
-                        "user_id": user_id,
-                        "key": key,
-                        "value": value,
-                    }).execute()
-            except Exception:
-                pass
+    if not conversation_id or not message_id or not new_text:
+        return jsonify(error="conversation_id, message_id and message required"), 400
 
-            sb.table("messages").insert([
-                {"conversation_id": conversation_id, "role": "user", "content": user_msg},
-                {"conversation_id": conversation_id, "role": "assistant", "content": full_reply},
-            ]).execute()
+    user_id = _require_user()
+    sb = get_supabase_admin()
 
-            yield f"data: {json.dumps({'done': True, 'conversation_id': conversation_id, 'grounded': bool(context)})}\n\n"
-        except Exception as e:
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+    convo = sb.table("conversations").select("id").eq("id", conversation_id).eq("user_id", user_id).execute()
+    if not convo.data:
+        return jsonify(error="conversation not found"), 404
+
+    original = sb.table("messages").select("created_at").eq("id", message_id).eq("conversation_id", conversation_id).single().execute()
+    if not original.data:
+        return jsonify(error="message not found"), 404
+
+    cutoff = original.data["created_at"]
+
+    sb.table("messages").delete().eq("conversation_id", conversation_id).gte("created_at", cutoff).execute()
 
     return Response(
-        stream_with_context(generate()),
+        stream_with_context(_stream_and_persist(sb, conversation_id, user_id, new_text, document_id)),
         mimetype="text/event-stream",
         headers={
             "Cache-Control": "no-cache, no-transform",
@@ -363,32 +417,12 @@ def messages(conversation_id: str):
     sb = get_supabase_admin()
     rows = (
         sb.table("messages")
-        .select("role,content,created_at")
+        .select("id,role,content,created_at")
         .eq("conversation_id", conversation_id)
         .order("created_at")
         .execute()
     )
     return jsonify(messages=rows.data or [])
-
-
-@chat_bp.post("/memory")
-@login_required_api
-def save_memory():
-    user_id = _require_user()
-    if not user_id:
-        return jsonify(error="auth required"), 401
-    data = request.get_json(force=True)
-    key = data.get("key", "").strip()
-    value = data.get("value", "").strip()
-    if not key or not value:
-        return jsonify(error="key and value required"), 400
-    sb = get_supabase_admin()
-    sb.table("memory").upsert({
-        "user_id": user_id,
-        "key": key,
-        "value": value,
-    }).execute()
-    return jsonify(ok=True)
 
 
 @chat_bp.delete("/history/<conversation_id>")
@@ -398,6 +432,9 @@ def delete_conversation(conversation_id: str):
     if not user_id:
         return jsonify(error="auth required"), 401
     sb = get_supabase_admin()
+    convo = sb.table("conversations").select("id").eq("id", conversation_id).eq("user_id", user_id).execute()
+    if not convo.data:
+        return jsonify(error="conversation not found"), 404
     sb.table("messages").delete().eq("conversation_id", conversation_id).execute()
     sb.table("conversations").delete().eq("id", conversation_id).eq("user_id", user_id).execute()
     return jsonify(ok=True)

@@ -84,17 +84,7 @@ def change_password():
         return jsonify(error=str(e)), 400
 
 
-@api_bp.post("/clear-memory")
-def clear_memory():
-    user_id = _require_user()
-    if not user_id:
-        return jsonify(error="auth required"), 401
-    try:
-        sb = get_supabase_admin()
-        sb.table("memory").delete().eq("user_id", user_id).execute()
-        return jsonify(ok=True)
-    except Exception as e:
-        return jsonify(error=str(e)), 400
+
 
 
 @api_bp.post("/delete-account")
@@ -105,7 +95,6 @@ def delete_account():
     try:
         sb = get_supabase_admin()
         # delete all user data
-        sb.table("memory").delete().eq("user_id", user_id).execute()
         sb.table("document_chunks").delete().eq("user_id", user_id).execute()
         sb.table("documents").delete().eq("user_id", user_id).execute()
         convos = sb.table("conversations").select("id").eq("user_id", user_id).execute()

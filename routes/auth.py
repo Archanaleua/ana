@@ -31,6 +31,9 @@ def signup():
     if not email or not password:
         return jsonify(error="email and password required"), 400
 
+    if not full_name:
+        return jsonify(error="full_name is required"), 400
+
     try:
         res = get_supabase().auth.sign_up({
             "email": email,

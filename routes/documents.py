@@ -24,26 +24,32 @@ def upload():
 
     try:
         sb = get_supabase_admin()
+
+        # Delete old documents + their chunks before adding new one
+        old_docs = sb.table("documents").select("id").eq("user_id", user_id).execute()
+        old_ids = [d["id"] for d in (old_docs.data or [])]
+        for did in old_ids:
+            sb.table("document_chunks").delete().eq("document_id", did).execute()
+        sb.table("documents").delete().eq("user_id", user_id).execute()
+
         doc = sb.table("documents").insert(
         {"user_id": user_id, "name": f.filename, "content": text}
         ).execute().data[0]
 
         chunks = chunk_text(text)
         if chunks:
-            result = sb.table("document_chunks").insert(
+            sb.table("document_chunks").insert(
                 [
                     {"document_id": doc["id"], "user_id": user_id,
                     "content": c, "chunk_index": i}
                     for i, c in enumerate(chunks)
                 ]
             ).execute()
-            
 
         return jsonify(ok=True, document=doc, chunks=len(chunks))
 
     except Exception as e:
         return jsonify(error=f"Server error: {str(e)}"), 500
-
 
 @documents_bp.get("/list")
 def list_docs():
