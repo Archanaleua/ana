@@ -9,7 +9,7 @@ Build. Create. Discover.
 
 ## ✨ Features
 
-- **AI Chat** — streaming responses via a Qwen3 reasoning model, served through Groq's API.
+- **AI Chat** — reasoning-model responses via Qwen3 (served through Groq's API). Backend uses Groq's token streaming internally, but responses are currently buffered and delivered as a single complete reply (not real-time typing) — true real-time streaming to the UI is planned for a future update.
 - **HR Assistant Tools (MCP)** — natural-language employee lookup, attendance, leave balance, and absentee reports, powered by a local MCP server and tool-calling.
 - **Multilingual by default** — auto-detects 15+ languages/scripts per message (English, Hindi, Gujarati, Arabic, Bengali, Tamil, Telugu, Kannada, Malayalam, Punjabi, Russian, Chinese, Japanese, Korean, Greek, Hebrew, Thai, Amharic, and mixed "Hinglish"-style input) and replies in that same language — including mid-conversation language switches.
 - **Document Q&A (RAG-ready)** — upload PDFs/DOCX/TXT, parse, chunk, retrieve top-k relevant chunks, answer strictly from document content.
